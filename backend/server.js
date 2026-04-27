@@ -1,7 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const { User, Family, Medicine, AlternateMed, PrescribedMed, DoseLog, Reminder, Appointment, Test, Symptom, Report } = require('./models');
+const { User, Family, Medicine, AlternateMed, PrescribedMed, DoseLog, Reminder, Appointment, Test, Symptom, Report, WeeklyReport } = require('./models');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -302,6 +302,81 @@ app.post('/api/symptoms/check', async (req, res) => {
         ? 'No specific condition identified based on your symptoms. Monitor your health and consult a doctor if symptoms worsen.'
         : null
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// FEATURE 6: WEEKLY REPORT
+// ============================================================
+
+// POST /api/weekly-report/generate
+app.post('/api/weekly-report/generate', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: 'userId is required' });
+
+    // Find all active prescriptions for the user
+    const prescriptions = await PrescribedMed.find({ userId, active: true });
+
+    // Determine the date range (last 7 days)
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - 7);
+
+    const generatedReports = [];
+
+    for (const rx of prescriptions) {
+      // Find all reminders for this prescription
+      const reminders = await Reminder.find({ prescriptionId: rx._id, isActive: true });
+      const dailyDoses = reminders.length;
+
+      // Expected total doses for 7 days
+      const totalDose = dailyDoses * 7;
+
+      // If there are no reminders, we can't calculate adherence properly, skip
+      if (totalDose === 0) continue;
+
+      // Find DoseLogs for this prescription in the last 7 days
+      const doseLogs = await DoseLog.find({
+        prescriptionId: rx._id,
+        dateTaken: { $gte: startDate, $lte: endDate }
+      });
+
+      // Calculate doses taken
+      const doseTaken = doseLogs.filter(log => ['Taken', 'Early', 'Late'].includes(log.status)).length;
+
+      // Calculate doses missed
+      const doseMissed = Math.max(0, totalDose - doseTaken); // Ensure it doesn't go below 0
+
+      // Calculate success rate
+      const successRate = (doseTaken / totalDose) * 100;
+
+      // Fetch last week's rate from the most recent WeeklyReport for this prescription
+      const lastReport = await WeeklyReport.findOne({ prescriptionId: rx._id })
+        .sort({ reportDate: -1 }); // Get the latest one
+
+      const lastWeeksRate = lastReport ? lastReport.successRate : null;
+
+      // Create new WeeklyReport
+      const newReport = new WeeklyReport({
+        userId,
+        prescriptionId: rx._id,
+        totalDose,
+        doseTaken,
+        doseMissed,
+        medicineStart: rx.startDate,
+        medicineEnd: rx.endDate,
+        successRate,
+        lastWeeksRate
+      });
+
+      await newReport.save();
+      generatedReports.push(newReport);
+    }
+
+    res.status(201).json({ message: 'Weekly reports generated successfully', reports: generatedReports });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
