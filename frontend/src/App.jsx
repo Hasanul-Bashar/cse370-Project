@@ -18,6 +18,10 @@ function App() {
   const [symptomResult, setSymptomResult] = useState(null);
   const [symptomLoading, setSymptomLoading] = useState(false);
 
+  // Weekly Report State
+  const [weeklyReports, setWeeklyReports] = useState([]);
+  const [reportLoading, setReportLoading] = useState(false);
+
   const fetchData = () => {
     if (!user) return;
     fetch(`http://localhost:5000/api/medicines/${user.id}`)
@@ -181,6 +185,26 @@ function App() {
     setSymptomLoading(false);
   };
 
+  const handleGenerateWeeklyReport = async () => {
+    setReportLoading(true);
+    try {
+      const response = await fetch('http://localhost:5000/api/weekly-report/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setWeeklyReports(data.reports);
+      } else {
+        alert(data.error || 'Failed to generate report');
+      }
+    } catch (err) {
+      alert('Failed to connect to server.');
+    }
+    setReportLoading(false);
+  };
+
   return (
     <div className="app-wrapper">
       {/* Sidebar Taskbar */}
@@ -197,6 +221,9 @@ function App() {
           </button>
           <button className={activeTab === 'symptoms' ? 'active' : ''} onClick={() => setActiveTab('symptoms')}>
             Symptom Checker
+          </button>
+          <button className={activeTab === 'weekly-report' ? 'active' : ''} onClick={() => setActiveTab('weekly-report')}>
+            Weekly Reports
           </button>
         </nav>
         <div className="sidebar-footer">
@@ -395,6 +422,50 @@ function App() {
                   ))}
                 </section>
               )}
+            </div>
+          )}
+
+          {activeTab === 'weekly-report' && (
+            <div className="tab-view">
+              <section className="card">
+                <h3>📊 Weekly Progress Reports</h3>
+                <p style={{ marginBottom: '20px', color: 'var(--text-muted)' }}>Generate a report to see your medication adherence over the last 7 days.</p>
+                <button onClick={handleGenerateWeeklyReport} className="btn-primary" disabled={reportLoading}>
+                  {reportLoading ? 'Generating...' : '🔄 Generate Latest Report'}
+                </button>
+
+                {weeklyReports.length > 0 && (
+                  <div className="medicine-list" style={{ marginTop: '24px' }}>
+                    {weeklyReports.map(report => {
+                      const med = medicines.find(m => m._id === report.prescriptionId);
+                      const medName = med ? med.medicineId?.name : 'Unknown Medicine';
+
+                      return (
+                        <div key={report._id} className="medicine-item" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginBottom: '12px' }}>
+                            <h4 style={{ fontSize: '18px' }}>{medName}</h4>
+                            <span className={`badge ${report.successRate === 100 ? 'safe' :
+                                report.successRate >= 50 ? 'warning' : 'danger'
+                              }`} style={{ fontSize: '16px' }}>
+                              {report.successRate.toFixed(0)}% Success
+                            </span>
+                          </div>
+                          <p style={{ color: 'var(--text-muted)', marginBottom: '8px' }}>
+                            Expected Doses: <strong>{report.totalDose}</strong> |
+                            Taken: <strong>{report.doseTaken}</strong> |
+                            Missed: <strong>{report.doseMissed}</strong>
+                          </p>
+                          {report.lastWeeksRate !== null && (
+                            <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
+                              Last week's rate: {report.lastWeeksRate.toFixed(0)}%
+                            </p>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </section>
             </div>
           )}
 

@@ -101,6 +101,20 @@ const reportSchema = new mongoose.Schema({
   summary: String
 }, { timestamps: true });
 
+// 12. WEEKLY REPORT SCHEMA (Tracks doses and success rate per medicine)
+const weeklyReportSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  prescriptionId: { type: mongoose.Schema.Types.ObjectId, ref: 'PrescribedMed', required: true },
+  totalDose: { type: Number, required: true },
+  doseTaken: { type: Number, required: true },
+  doseMissed: { type: Number, required: true },
+  medicineStart: { type: Date },
+  medicineEnd: { type: Date },
+  successRate: { type: Number, required: true }, // Percentage 0-100
+  lastWeeksRate: { type: Number }, // Percentage 0-100
+  reportDate: { type: Date, default: Date.now }
+}, { timestamps: true });
+
 // Compile Models
 const User = mongoose.model('User', userSchema);
 const Family = mongoose.model('Family', familySchema);
@@ -113,17 +127,19 @@ const Appointment = mongoose.model('Appointment', appointmentSchema);
 const Test = mongoose.model('Test', testSchema);
 const Symptom = mongoose.model('Symptom', symptomSchema);
 const Report = mongoose.model('Report', reportSchema);
+const WeeklyReport = mongoose.model('WeeklyReport', weeklyReportSchema);
 
-module.exports = { 
-  User, 
-  Family, 
-  Medicine, 
-  AlternateMed, 
-  PrescribedMed, 
-  DoseLog, 
-  Reminder, 
-  Appointment, 
-  Test, 
-  Symptom, 
-  Report 
+module.exports = {
+  User,
+  Family,
+  Medicine,
+  AlternateMed,
+  PrescribedMed,
+  DoseLog,
+  Reminder,
+  Appointment,
+  Test,
+  Symptom,
+  Report,
+  WeeklyReport
 };
