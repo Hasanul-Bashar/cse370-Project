@@ -1,49 +1,64 @@
 import { useState, useEffect } from 'react';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [medicines, setMedicines] = useState([]);
-  
-  // Auth State
   const [user, setUser] = useState(null);
   const [isLoginView, setIsLoginView] = useState(true);
   const [authForm, setAuthForm] = useState({ name: '', email: '', password: '' });
   
-  // Modal State
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newMedForm, setNewMedForm] = useState({ name: '', dose: '', frequency: '', total_quantity: '' });
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [medicines, setMedicines] = useState([]);
+  const [schedule, setSchedule] = useState([]);
+  const [newMedForm, setNewMedForm] = useState({ name: '', dose: '', frequency: '', scheduledTimes: [''], total_quantity: '', refillAlertAt: '' });
+  const [takenStatuses, setTakenStatuses] = useState({});
+  const [lowStockMeds, setLowStockMeds] = useState([]);
+
+  // Symptom Checker State
+  const SYMPTOM_LIST = ['Fever', 'Fatigue', 'Headache', 'Dizziness', 'Blurred vision', 'Nausea', 'Diarrhea', 'Joint pain', 'Muscle aches'];
+  const [selectedSymptoms, setSelectedSymptoms] = useState([]);
+  const [symptomResult, setSymptomResult] = useState(null);
+  const [symptomLoading, setSymptomLoading] = useState(false);
+
+  const fetchData = () => {
+    if (!user) return;
+    fetch(`http://localhost:5000/api/medicines/${user.id}`)
+      .then(res => res.json())
+      .then(data => setMedicines(data))
+      .catch(err => console.error(err));
+      
+    fetch(`http://localhost:5000/api/schedule/${user.id}`)
+      .then(res => res.json())
+      .then(data => setSchedule(data))
+      .catch(err => console.error(err));
+
+    // Fetch Refill Alerts from backend
+    fetch(`http://localhost:5000/api/refill-alerts/${user.id}`)
+      .then(res => res.json())
+      .then(data => setLowStockMeds(data))
+      .catch(err => console.error(err));
+  };
 
   useEffect(() => {
-    if (user) {
-      // Fetch medicines only if logged in
-      fetch('http://localhost:5000/api/medicines')
-        .then(res => res.json())
-        .then(data => setMedicines(data))
-        .catch(err => console.error("Error fetching medicines", err));
-    }
+    fetchData();
   }, [user]);
 
   const handleAuth = async (e) => {
     e.preventDefault();
     const endpoint = isLoginView ? '/api/login' : '/api/signup';
-    
     try {
       const response = await fetch(`http://localhost:5000${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(authForm)
       });
-      
       const data = await response.json();
       if (response.ok) {
         setUser(data.user);
-        // Clear auth form
         setAuthForm({ name: '', email: '', password: '' });
       } else {
         alert(data.error);
       }
     } catch (err) {
-      alert("Failed to connect to the server.");
+      alert("Failed to connect to server.");
     }
   };
 
@@ -55,398 +70,339 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...newMedForm, userId: user.id })
       });
-      
       if (response.ok) {
-        setIsModalOpen(false);
-        setNewMedForm({ name: '', dose: '', frequency: '', total_quantity: '' });
-        // Refresh medicines
-        fetch('http://localhost:5000/api/medicines')
-          .then(res => res.json())
-          .then(data => setMedicines(data));
+        setNewMedForm({ name: '', dose: '', frequency: '', scheduledTimes: [''], total_quantity: '', refillAlertAt: '' });
+        fetchData();
+        setActiveTab('medicines'); // Switch to medicines tab to see it added
       } else {
-        alert('Error saving medicine');
+        alert('Error adding medicine');
       }
     } catch (err) {
-      alert("Failed to connect to server.");
+      alert("Failed to connect");
     }
   };
 
-  // If user is NOT logged in, show Auth Screen
+  const handleRemoveMedicine = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this medicine?")) return;
+    try {
+      const response = await fetch(`http://localhost:5000/api/medicines/${id}`, { method: 'DELETE' });
+      if (response.ok) fetchData();
+    } catch (err) {
+      alert("Failed to remove");
+    }
+  };
+
+  const handleTakeDose = async (prescriptionId, scheduledTime, reminderId) => {
+    const now = new Date();
+    const timeTaken = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    
+    try {
+      const response = await fetch('http://localhost:5000/api/doselogs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prescriptionId, scheduledTime, timeTaken })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setTakenStatuses(prev => ({ ...prev, [reminderId]: data.status }));
+        fetchData(); 
+      }
+    } catch (err) {
+      alert("Failed to log dose");
+    }
+  };
+
   if (!user) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#0f172a', color: '#fff', backgroundImage: 'radial-gradient(circle at 15% 50%, rgba(14, 165, 233, 0.15) 0%, transparent 50%), radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.15) 0%, transparent 50%)' }}>
-        <div style={{ background: 'rgba(30, 41, 59, 0.9)', padding: '40px', borderRadius: '16px', width: '400px', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)' }}>
-          <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-            <i className="ri-heart-pulse-fill" style={{ fontSize: '48px', color: '#0ea5e9', filter: 'drop-shadow(0 0 8px rgba(14, 165, 233, 0.6))' }}></i>
-            <h2 style={{ color: '#0ea5e9', marginTop: '10px' }}>
-              {isLoginView ? 'Welcome Back' : 'Create Account'}
-            </h2>
-          </div>
-          <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div className="auth-container">
+        <div className="auth-card">
+          <h2 className="title">Health Nest</h2>
+          <p className="subtitle">{isLoginView ? 'Welcome Back' : 'Create an Account'}</p>
+          <form onSubmit={handleAuth} className="auth-form">
             {!isLoginView && (
-              <input 
-                type="text" 
-                placeholder="Full Name" 
-                value={authForm.name}
-                onChange={(e) => setAuthForm({...authForm, name: e.target.value})}
-                required
-                style={{ padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(15, 23, 42, 0.5)', color: '#fff' }}
-              />
+              <input type="text" placeholder="Full Name" value={authForm.name} onChange={e => setAuthForm({...authForm, name: e.target.value})} required />
             )}
-            <input 
-              type="email" 
-              placeholder="Email" 
-              value={authForm.email}
-              onChange={(e) => setAuthForm({...authForm, email: e.target.value})}
-              required
-              style={{ padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(15, 23, 42, 0.5)', color: '#fff' }}
-            />
-            <input 
-              type="password" 
-              placeholder="Password" 
-              value={authForm.password}
-              onChange={(e) => setAuthForm({...authForm, password: e.target.value})}
-              required
-              style={{ padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(15, 23, 42, 0.5)', color: '#fff' }}
-            />
-            <button type="submit" className="btn btn-primary" style={{ marginTop: '12px', justifyContent: 'center' }}>
-              {isLoginView ? 'Login' : 'Sign Up'}
-            </button>
+            <input type="email" placeholder="Email Address" value={authForm.email} onChange={e => setAuthForm({...authForm, email: e.target.value})} required />
+            <input type="password" placeholder="Password" value={authForm.password} onChange={e => setAuthForm({...authForm, password: e.target.value})} required />
+            <button type="submit" className="btn-primary">{isLoginView ? 'Login' : 'Sign Up'}</button>
           </form>
-          <p style={{ textAlign: 'center', marginTop: '20px', fontSize: '14px', color: '#94a3b8' }}>
+          <p className="auth-toggle">
             {isLoginView ? "Don't have an account? " : "Already have an account? "}
-            <span style={{ color: '#0ea5e9', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => setIsLoginView(!isLoginView)}>
-              {isLoginView ? 'Sign up here' : 'Login here'}
-            </span>
+            <span onClick={() => setIsLoginView(!isLoginView)}>{isLoginView ? 'Sign up' : 'Login'}</span>
           </p>
         </div>
       </div>
     );
   }
 
-  // If user IS logged in, show Full App
+  // Derive unique meds for today from schedule
+  const medsForTodayIds = new Set();
+  const medsForToday = [];
+  schedule.forEach(rem => {
+    const medId = rem.prescriptionId?._id;
+    if (medId && !medsForTodayIds.has(medId)) {
+      medsForTodayIds.add(medId);
+      medsForToday.push(rem.prescriptionId);
+    }
+  });
+
+  // lowStockMeds is now fetched from backend via /api/refill-alerts/:userId
+
+  // Toggle a symptom checkbox
+  const toggleSymptom = (symptom) => {
+    setSelectedSymptoms(prev =>
+      prev.includes(symptom) ? prev.filter(s => s !== symptom) : [...prev, symptom]
+    );
+  };
+
+  // Submit symptoms to backend for analysis
+  const handleSymptomCheck = async () => {
+    if (selectedSymptoms.length === 0) {
+      alert('Please select at least one symptom.');
+      return;
+    }
+    setSymptomLoading(true);
+    setSymptomResult(null);
+    try {
+      const response = await fetch('http://localhost:5000/api/symptoms/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, selectedSymptoms })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setSymptomResult(data);
+      } else {
+        alert(data.error);
+      }
+    } catch (err) {
+      alert('Failed to connect to server.');
+    }
+    setSymptomLoading(false);
+  };
+
   return (
-    <div className="app-container">
-      {/* Sidebar */}
+    <div className="app-wrapper">
+      {/* Sidebar Taskbar */}
       <aside className="sidebar">
-        <div className="sidebar-logo">
-          <i className="ri-heart-pulse-fill"></i>
-          <span>MediTrack</span>
+        <div className="sidebar-header">
+          <h2>Health Nest</h2>
         </div>
         <nav className="sidebar-nav">
-          <button className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
-            <i className="ri-dashboard-line"></i> Dashboard
+          <button className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => setActiveTab('dashboard')}>
+            Dashboard
           </button>
-          <button className={`nav-item ${activeTab === 'medicines' ? 'active' : ''}`} onClick={() => setActiveTab('medicines')}>
-            <i className="ri-capsule-fill"></i> Medicines
+          <button className={activeTab === 'medicines' ? 'active' : ''} onClick={() => setActiveTab('medicines')}>
+            Medicines Database
           </button>
-          <button className={`nav-item ${activeTab === 'appointments' ? 'active' : ''}`} onClick={() => setActiveTab('appointments')}>
-            <i className="ri-calendar-event-line"></i> Appointments
-          </button>
-          <button className={`nav-item ${activeTab === 'family' ? 'active' : ''}`} onClick={() => setActiveTab('family')}>
-            <i className="ri-team-line"></i> Family
-          </button>
-          <button className={`nav-item ${activeTab === 'symptoms' ? 'active' : ''}`} onClick={() => setActiveTab('symptoms')}>
-            <i className="ri-stethoscope-line"></i> Symptoms
-          </button>
-          <button className={`nav-item ${activeTab === 'reports' ? 'active' : ''}`} onClick={() => setActiveTab('reports')}>
-            <i className="ri-file-chart-line"></i> Reports
+          <button className={activeTab === 'symptoms' ? 'active' : ''} onClick={() => setActiveTab('symptoms')}>
+            Symptom Checker
           </button>
         </nav>
-        <div className="sidebar-bottom">
-          <div className="user-profile" onClick={() => { if(window.confirm('Logout?')) setUser(null); }}>
-            <img src={`https://ui-avatars.com/api/?name=${user.name.replace(' ', '+')}&background=2563eb&color=fff`} alt="User" />
-            <div className="user-info">
-              <h4>{user.name}</h4>
-              <p>Log Out</p>
-            </div>
-          </div>
+        <div className="sidebar-footer">
+          <button onClick={() => setUser(null)} className="btn-logout">Logout</button>
         </div>
       </aside>
 
-      {/* Main Content */}
+      {/* Main Content Area */}
       <main className="main-content">
-        <header className="topbar">
-          <div className="search-bar">
-            <i className="ri-search-line"></i>
-            <input type="text" placeholder="Search medicines, appointments..." />
-          </div>
-          <div className="topbar-actions">
-            <button className="icon-btn notification-btn">
-              <i className="ri-notification-3-line"></i>
-              <span className="badge">3</span>
-            </button>
-            <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
-              <i className="ri-add-line"></i> Add Medicine
-            </button>
-          </div>
+        <header className="top-header">
+          <span>Welcome, <strong>{user.name}</strong>!</span>
         </header>
 
-        <div className="views-container">
-          {/* Dashboard View */}
+        <div className="content-container">
+          
           {activeTab === 'dashboard' && (
-            <div className="view">
-              <div className="welcome-banner">
-                <div className="welcome-text">
-                  <h2>Good Morning, {user.name.split(' ')[0]}! 👋</h2>
-                  <p>Here's your health summary for today. You have {medicines.length} active medicines and 1 upcoming appointment.</p>
-                </div>
-              </div>
-
-              <div className="dashboard-grid">
-                <div className="card schedule-card">
-                  <div className="card-header">
-                    <h3>Today's Schedule</h3>
-                    <a href="#viewall" style={{color: '#0ea5e9'}}>View All</a>
-                  </div>
-                  <div className="schedule-list">
-                    {medicines.length === 0 ? (
-                      <p style={{color: '#94a3b8'}}>No medicines scheduled for today.</p>
-                    ) : (
-                      medicines.slice(0,3).map((med, idx) => (
-                        <div key={idx} className="schedule-item status-pending">
-                          <div className="time">08:00 AM</div>
-                          <div className="details">
-                            <h4>{med.medicineId?.name || "Medicine"} ({med.dose})</h4>
-                            <p>1 Pill • {med.frequency}</p>
-                          </div>
-                          <button className="action-btn check" onClick={(e) => {
-                            e.currentTarget.className="action-btn checked";
-                            e.currentTarget.innerHTML="<i class='ri-check-double-line'></i>";
-                          }}><i className="ri-check-line"></i></button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                <div className="card alerts-card">
-                  <div className="card-header">
-                    <h3>Refill Alerts</h3>
-                  </div>
+            <div className="tab-view">
+              {/* Refill Reminder Section */}
+              <section className="card refill-section">
+                <h3>⚠️ Refill Reminder</h3>
+                {lowStockMeds.length === 0 ? (
+                  <p className="success-text">No refill needed.</p>
+                ) : (
                   <div className="alert-list">
-                    {medicines.filter(m => m.remainingQuantity <= 5).map((med, idx) => (
-                      <div key={idx} className="alert-item warning">
-                        <div className="alert-icon"><i className="ri-error-warning-line"></i></div>
-                        <div className="alert-text">
-                          <h4>{med.medicineId?.name} Running Low</h4>
-                          <p>Only {med.remainingQuantity} pills remaining</p>
-                        </div>
-                        <button className="btn btn-sm btn-outline">Refill</button>
+                    {lowStockMeds.map(med => (
+                      <div key={med._id} className="alert-item">
+                        <span><strong>{med.medicineId?.name}</strong> is running low!</span>
+                        <span className="badge danger">Only {med.remainingQuantity} left</span>
                       </div>
                     ))}
-                    {medicines.filter(m => m.remainingQuantity <= 5).length === 0 && (
-                      <p style={{color: '#94a3b8'}}>No refill alerts!</p>
-                    )}
                   </div>
-                </div>
+                )}
+              </section>
 
-                <div className="stats-container">
-                  <div className="stat-card blue">
-                    <div className="stat-icon"><i className="ri-capsule-line"></i></div>
-                    <div className="stat-info">
-                      <h3>{medicines.length}</h3>
-                      <p>Active Medicines</p>
-                    </div>
-                  </div>
-                  <div className="stat-card purple">
-                    <div className="stat-icon"><i className="ri-team-line"></i></div>
-                    <div className="stat-info">
-                      <h3>3</h3>
-                      <p>Family Members</p>
-                    </div>
-                  </div>
-                  <div className="stat-card green">
-                    <div className="stat-icon"><i className="ri-heart-pulse-line"></i></div>
-                    <div className="stat-info">
-                      <h3>95%</h3>
-                      <p>Adherence Rate</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+              {/* Add Medicine Form */}
+              <section className="card">
+                <h3>➕ Add New Medicine</h3>
+                <form onSubmit={handleAddMedicine} className="add-med-form">
+                  <input type="text" placeholder="Medicine Name" value={newMedForm.name} onChange={e => setNewMedForm({...newMedForm, name: e.target.value})} required />
+                  <input type="text" placeholder="Dose (e.g. 500mg)" value={newMedForm.dose} onChange={e => setNewMedForm({...newMedForm, dose: e.target.value})} required />
+                  <select value={newMedForm.frequency} onChange={e => {
+                    const val = e.target.value;
+                    let count = 1;
+                    if (val === 'Twice a day') count = 2;
+                    if (val === 'Thrice a day') count = 3;
+                    const newTimes = Array(count).fill('');
+                    setNewMedForm({...newMedForm, frequency: val, scheduledTimes: newTimes});
+                  }} required>
+                    <option value="">Select Frequency...</option>
+                    <option value="Once a day">Once a day</option>
+                    <option value="Twice a day">Twice a day</option>
+                    <option value="Thrice a day">Thrice a day</option>
+                  </select>
+                  {newMedForm.scheduledTimes.map((time, index) => (
+                    <input key={index} type="time" title={`Scheduled Time ${index + 1}`} value={time} onChange={e => {
+                      const newTimes = [...newMedForm.scheduledTimes];
+                      newTimes[index] = e.target.value;
+                      setNewMedForm({...newMedForm, scheduledTimes: newTimes});
+                    }} required />
+                  ))}
+                  <input type="number" placeholder="Total Pills" value={newMedForm.total_quantity} onChange={e => setNewMedForm({...newMedForm, total_quantity: e.target.value})} required />
+                  <input type="number" placeholder="Alert at (e.g. 5)" value={newMedForm.refillAlertAt} onChange={e => setNewMedForm({...newMedForm, refillAlertAt: e.target.value})} />
+                  <button type="submit" className="btn-primary">Save Medicine</button>
+                </form>
+              </section>
 
-          {/* Medicines View */}
-          {activeTab === 'medicines' && (
-            <div className="view">
-              <div className="view-header">
-                <h2>Medicine Management</h2>
-                <div className="view-actions">
-                  <button className="btn btn-outline"><i className="ri-filter-3-line"></i> Filter</button>
-                  <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}><i className="ri-add-line"></i> Add New</button>
-                </div>
-              </div>
-              
-              <div className="medicines-grid">
-                {medicines.length === 0 ? <p style={{color: '#94a3b8'}}>You haven't added any medicines yet.</p> : medicines.map((med, i) => (
-                  <div key={i} className="medicine-card">
-                    <div className="med-header">
-                      <div className="med-icon"><i className="ri-capsule-fill"></i></div>
-                      <span className="badge info">Medicine</span>
-                    </div>
-                    <h3 className="med-name">{med.medicineId?.name || "Unknown"} <span className="dosage">{med.dose}</span></h3>
-                    <p className="med-instruction">{med.frequency}</p>
-                    
-                    <div className="med-progress">
-                      <div className="progress-info">
-                        <span>Stock Level</span>
-                        <span className={med.remainingQuantity <= 5 ? "text-warning" : "text-success"}>
-                          {med.remainingQuantity} / {med.totalQuantity} left
-                        </span>
+              <div className="grid-2-col">
+                {/* Left Column: Today's Schedule */}
+                <section className="card">
+                  <h3>⏰ Today's Schedule</h3>
+                  <div className="schedule-list">
+                    {schedule.length === 0 ? <p className="empty-text">No medicines scheduled.</p> : schedule.map(reminder => (
+                      <div key={reminder._id} className="schedule-item">
+                        <div className="schedule-info">
+                          <h4>{reminder.timeToTake}</h4>
+                          <p><strong>{reminder.prescriptionId?.medicineId?.name}</strong></p>
+                        </div>
+                        {takenStatuses[reminder._id] ? (
+                          <span className={`badge ${
+                            takenStatuses[reminder._id] === 'Late' ? 'danger' :
+                            takenStatuses[reminder._id] === 'Early' ? 'warning' :
+                            'safe'
+                          }`} style={{fontSize: '14px', padding: '6px 12px'}}>
+                            {takenStatuses[reminder._id] === 'Late' ? 'Late Taken' :
+                             takenStatuses[reminder._id] === 'Early' ? 'Early Taken' :
+                             'Taken'}
+                          </span>
+                        ) : (
+                          <button onClick={() => handleTakeDose(reminder.prescriptionId?._id, reminder.timeToTake, reminder._id)} className="btn-success icon-btn">
+                            ✓
+                          </button>
+                        )}
                       </div>
-                      <div className="progress-bar">
-                        <div 
-                          className={`progress-fill ${med.remainingQuantity <= 5 ? "bg-warning" : "bg-success"}`} 
-                          style={{width: `${Math.min(100, (med.remainingQuantity / med.totalQuantity) * 100)}%`}}>
+                    ))}
+                  </div>
+                </section>
+
+                {/* Right Column: Meds for Today (NO STOCK) */}
+                <section className="card">
+                  <h3>💊 Meds for Today</h3>
+                  <div className="medicine-list">
+                    {medsForToday.length === 0 ? <p className="empty-text">No active medicines today.</p> : medsForToday.map(med => (
+                      <div key={med._id} className="medicine-item">
+                        <div className="med-details">
+                          <h4>{med.medicineId?.name}</h4>
+                          <p>Dose: {med.dose}</p>
                         </div>
                       </div>
-                    </div>
-                    
-                    <div className="med-actions">
-                      <button className="btn-icon"><i className="ri-information-line"></i></button>
-                      <button className="btn-icon"><i className="ri-edit-line"></i></button>
-                      <button className="btn-icon text-danger"><i className="ri-delete-bin-line"></i></button>
-                    </div>
+                    ))}
                   </div>
-                ))}
+                </section>
               </div>
             </div>
           )}
 
-          {/* Appointments View */}
-          {activeTab === 'appointments' && (
-            <div className="view">
-              <div className="view-header">
-                <h2>Appointments & Lab Tests</h2>
-                <div className="view-actions">
-                  <button className="btn btn-primary"><i className="ri-add-line"></i> Book</button>
-                </div>
-              </div>
-              <div className="dashboard-grid">
-                <div className="card">
-                  <div className="card-header"><h3>Upcoming</h3></div>
-                  <div className="appointment-list">
-                    <div className="appointment-item">
-                      <div className="date-box">
-                        <span className="month">MAY</span>
-                        <span className="day">15</span>
+          {activeTab === 'medicines' && (
+            <div className="tab-view">
+              <section className="card">
+                <h3>📚 Medicine Database</h3>
+                <p style={{marginBottom: '16px', color: 'var(--text-muted)'}}>Here is your full list of medications and their current stock levels.</p>
+                <div className="medicine-list">
+                  {medicines.length === 0 ? <p className="empty-text">No active medicines.</p> : medicines.map(med => (
+                    <div key={med._id} className="medicine-item">
+                      <div className="med-details">
+                        <h4>{med.medicineId?.name}</h4>
+                        <p>{med.dose} • {med.frequency}</p>
+                        <span className="badge safe">Stock: {med.remainingQuantity} / {med.totalQuantity}</span>
                       </div>
-                      <div className="appointment-details">
-                        <h4>Dr. Sarah Smith</h4>
-                        <p>General Checkup • 10:00 AM</p>
-                      </div>
+                      <button onClick={() => handleRemoveMedicine(med._id)} className="btn-danger">Delete</button>
                     </div>
-                  </div>
+                  ))}
                 </div>
-              </div>
+              </section>
             </div>
           )}
 
-          {/* Family View */}
-          {activeTab === 'family' && (
-            <div className="view">
-              <div className="view-header">
-                <h2>Family Members</h2>
-                <div className="view-actions">
-                  <button className="btn btn-primary"><i className="ri-add-line"></i> Add</button>
-                </div>
-              </div>
-              <div className="medicines-grid">
-                <div className="medicine-card" style={{textAlign: 'center', padding: '32px'}}>
-                  <img src="https://ui-avatars.com/api/?name=Jane+Doe&background=8b5cf6&color=fff" alt="Jane" style={{width: '80px', height: '80px', borderRadius: '50%', marginBottom: '16px'}} />
-                  <h3 className="med-name" style={{justifyContent: 'center'}}>Jane Doe</h3>
-                  <p className="med-instruction">Wife</p>
-                  <button className="btn btn-outline" style={{width: '100%', marginTop: '24px', justifyContent: 'center'}}>View Tracking</button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Symptoms View */}
           {activeTab === 'symptoms' && (
-            <div className="view">
-              <div className="view-header">
-                <h2>Symptom Checker</h2>
-                <div className="view-actions">
-                  <button className="btn btn-primary"><i className="ri-add-line"></i> Log</button>
-                </div>
-              </div>
-              <div className="card">
-                <div className="schedule-list">
-                  <div className="schedule-item">
-                    <div className="details">
-                      <div style={{display: 'flex', gap: '8px', marginBottom: '8px'}}>
-                        <span className="badge warning" style={{position:'static'}}>Mild</span>
-                        <span className="badge" style={{position:'static', background:'rgba(255,255,255,0.1)'}}>Headache</span>
-                      </div>
-                      <p>Recommendation: Drink water, rest. Take Paracetamol if pain persists.</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+            <div className="tab-view">
+              <section className="card">
+                <h3>🩺 Symptom Checker</h3>
+                <p style={{marginBottom: '20px', color: 'var(--text-muted)'}}>Select all the symptoms you are currently experiencing and we will analyze possible conditions.</p>
 
-          {/* Reports View */}
-          {activeTab === 'reports' && (
-            <div className="view">
-              <div className="view-header">
-                <h2>Weekly Reports</h2>
-              </div>
-              <div className="card">
-                <div className="card-header"><h3>Adherence Rate</h3></div>
-                <h1 style={{color: '#10b981', textAlign: 'center', fontSize: '64px'}}>95%</h1>
-              </div>
+                <div className="symptom-grid">
+                  {SYMPTOM_LIST.map(symptom => (
+                    <label key={symptom} className={`symptom-chip ${selectedSymptoms.includes(symptom) ? 'selected' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={selectedSymptoms.includes(symptom)}
+                        onChange={() => toggleSymptom(symptom)}
+                        style={{display: 'none'}}
+                      />
+                      {symptom}
+                    </label>
+                  ))}
+                </div>
+
+                <div style={{marginTop: '24px', display: 'flex', gap: '12px', alignItems: 'center'}}>
+                  <button onClick={handleSymptomCheck} className="btn-primary" disabled={symptomLoading}>
+                    {symptomLoading ? 'Analyzing...' : '🔍 Analyze Symptoms'}
+                  </button>
+                  <button onClick={() => { setSelectedSymptoms([]); setSymptomResult(null); }} className="btn-outline">
+                    Clear
+                  </button>
+                </div>
+              </section>
+
+              {symptomResult && (
+                <section className="card">
+                  <h3>📋 Analysis Results</h3>
+
+                  <div style={{display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px'}}>
+                    <span>Overall Severity:</span>
+                    <span className={`badge ${
+                      symptomResult.overallSeverity === 'Severe' ? 'danger' :
+                      symptomResult.overallSeverity === 'Moderate' ? 'warning' : 'safe'
+                    }`} style={{fontSize: '14px', padding: '6px 14px'}}>
+                      {symptomResult.overallSeverity}
+                    </span>
+                  </div>
+
+                  {symptomResult.message && (
+                    <p style={{color: 'var(--text-muted)', fontStyle: 'italic'}}>{symptomResult.message}</p>
+                  )}
+
+                  {symptomResult.conditions && symptomResult.conditions.map((cond, i) => (
+                    <div key={i} className="condition-card">
+                      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px'}}>
+                        <h4>{cond.name}</h4>
+                        <span className={`badge ${
+                          cond.severity === 'Severe' ? 'danger' :
+                          cond.severity === 'Moderate' ? 'warning' : 'safe'
+                        }`}>{cond.severity}</span>
+                      </div>
+                      <p style={{color: 'var(--text-muted)', fontSize: '14px', marginBottom: '8px'}}>
+                        Matched symptoms: <strong>{cond.matchedSymptoms.join(', ')}</strong>
+                      </p>
+                      <p style={{fontSize: '14px', lineHeight: '1.6'}}>{cond.feedback}</p>
+                    </div>
+                  ))}
+                </section>
+              )}
             </div>
           )}
 
         </div>
       </main>
-
-      {/* Add Medicine Modal */}
-      {isModalOpen && (
-        <div className="modal-overlay active">
-          <div className="modal">
-            <div className="modal-header">
-              <h2>Add New Medicine</h2>
-              <button className="close-modal" onClick={() => setIsModalOpen(false)}><i className="ri-close-line"></i></button>
-            </div>
-            <div className="modal-body">
-              <form onSubmit={handleAddMedicine}>
-                <div className="form-group">
-                  <label>Medicine Name</label>
-                  <input type="text" value={newMedForm.name} onChange={e => setNewMedForm({...newMedForm, name: e.target.value})} required />
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Dosage</label>
-                    <input type="text" value={newMedForm.dose} onChange={e => setNewMedForm({...newMedForm, dose: e.target.value})} required />
-                  </div>
-                  <div className="form-group">
-                    <label>Total Quantity</label>
-                    <input type="number" value={newMedForm.total_quantity} onChange={e => setNewMedForm({...newMedForm, total_quantity: e.target.value})} required />
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label>Frequency</label>
-                  <select value={newMedForm.frequency} onChange={e => setNewMedForm({...newMedForm, frequency: e.target.value})}>
-                    <option value="">Select...</option>
-                    <option value="Once daily">Once daily</option>
-                    <option value="Twice daily">Twice daily</option>
-                    <option value="As needed">As needed</option>
-                  </select>
-                </div>
-                <div className="form-actions">
-                  <button type="button" className="btn btn-outline" onClick={() => setIsModalOpen(false)}>Cancel</button>
-                  <button type="submit" className="btn btn-primary">Save</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
