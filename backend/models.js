@@ -43,7 +43,7 @@ const prescribedMedSchema = new mongoose.Schema({
   totalQuantity: { type: Number, required: true },
   remainingQuantity: { type: Number, required: true },
   active: { type: Boolean, default: true },
-  refillAlertAt: { type: Number, default: 5 }
+  refillAlertAt: { type: Number }
 }, { timestamps: true });
 
 // 6. DOSE LOG SCHEMA (Tracks daily pill intake history)

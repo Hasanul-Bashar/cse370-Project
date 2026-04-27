@@ -4,7 +4,7 @@ function App() {
   const [user, setUser] = useState(null);
   const [isLoginView, setIsLoginView] = useState(true);
   const [authForm, setAuthForm] = useState({ name: '', email: '', password: '' });
-  
+
   const [activeTab, setActiveTab] = useState('dashboard');
   const [medicines, setMedicines] = useState([]);
   const [schedule, setSchedule] = useState([]);
@@ -24,7 +24,7 @@ function App() {
       .then(res => res.json())
       .then(data => setMedicines(data))
       .catch(err => console.error(err));
-      
+
     fetch(`http://localhost:5000/api/schedule/${user.id}`)
       .then(res => res.json())
       .then(data => setSchedule(data))
@@ -95,7 +95,7 @@ function App() {
   const handleTakeDose = async (prescriptionId, scheduledTime, reminderId) => {
     const now = new Date();
     const timeTaken = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-    
+
     try {
       const response = await fetch('http://localhost:5000/api/doselogs', {
         method: 'POST',
@@ -105,7 +105,7 @@ function App() {
       const data = await response.json();
       if (response.ok) {
         setTakenStatuses(prev => ({ ...prev, [reminderId]: data.status }));
-        fetchData(); 
+        fetchData();
       }
     } catch (err) {
       alert("Failed to log dose");
@@ -120,10 +120,10 @@ function App() {
           <p className="subtitle">{isLoginView ? 'Welcome Back' : 'Create an Account'}</p>
           <form onSubmit={handleAuth} className="auth-form">
             {!isLoginView && (
-              <input type="text" placeholder="Full Name" value={authForm.name} onChange={e => setAuthForm({...authForm, name: e.target.value})} required />
+              <input type="text" placeholder="Full Name" value={authForm.name} onChange={e => setAuthForm({ ...authForm, name: e.target.value })} required />
             )}
-            <input type="email" placeholder="Email Address" value={authForm.email} onChange={e => setAuthForm({...authForm, email: e.target.value})} required />
-            <input type="password" placeholder="Password" value={authForm.password} onChange={e => setAuthForm({...authForm, password: e.target.value})} required />
+            <input type="email" placeholder="Email Address" value={authForm.email} onChange={e => setAuthForm({ ...authForm, email: e.target.value })} required />
+            <input type="password" placeholder="Password" value={authForm.password} onChange={e => setAuthForm({ ...authForm, password: e.target.value })} required />
             <button type="submit" className="btn-primary">{isLoginView ? 'Login' : 'Sign Up'}</button>
           </form>
           <p className="auth-toggle">
@@ -211,7 +211,7 @@ function App() {
         </header>
 
         <div className="content-container">
-          
+
           {activeTab === 'dashboard' && (
             <div className="tab-view">
               {/* Refill Reminder Section */}
@@ -235,15 +235,15 @@ function App() {
               <section className="card">
                 <h3>➕ Add New Medicine</h3>
                 <form onSubmit={handleAddMedicine} className="add-med-form">
-                  <input type="text" placeholder="Medicine Name" value={newMedForm.name} onChange={e => setNewMedForm({...newMedForm, name: e.target.value})} required />
-                  <input type="text" placeholder="Dose (e.g. 500mg)" value={newMedForm.dose} onChange={e => setNewMedForm({...newMedForm, dose: e.target.value})} required />
+                  <input type="text" placeholder="Medicine Name" value={newMedForm.name} onChange={e => setNewMedForm({ ...newMedForm, name: e.target.value })} required />
+                  <input type="text" placeholder="Dose (e.g. 500mg)" value={newMedForm.dose} onChange={e => setNewMedForm({ ...newMedForm, dose: e.target.value })} required />
                   <select value={newMedForm.frequency} onChange={e => {
                     const val = e.target.value;
                     let count = 1;
                     if (val === 'Twice a day') count = 2;
                     if (val === 'Thrice a day') count = 3;
                     const newTimes = Array(count).fill('');
-                    setNewMedForm({...newMedForm, frequency: val, scheduledTimes: newTimes});
+                    setNewMedForm({ ...newMedForm, frequency: val, scheduledTimes: newTimes });
                   }} required>
                     <option value="">Select Frequency...</option>
                     <option value="Once a day">Once a day</option>
@@ -254,11 +254,11 @@ function App() {
                     <input key={index} type="time" title={`Scheduled Time ${index + 1}`} value={time} onChange={e => {
                       const newTimes = [...newMedForm.scheduledTimes];
                       newTimes[index] = e.target.value;
-                      setNewMedForm({...newMedForm, scheduledTimes: newTimes});
+                      setNewMedForm({ ...newMedForm, scheduledTimes: newTimes });
                     }} required />
                   ))}
-                  <input type="number" placeholder="Total Pills" value={newMedForm.total_quantity} onChange={e => setNewMedForm({...newMedForm, total_quantity: e.target.value})} required />
-                  <input type="number" placeholder="Alert at (e.g. 5)" value={newMedForm.refillAlertAt} onChange={e => setNewMedForm({...newMedForm, refillAlertAt: e.target.value})} />
+                  <input type="number" placeholder="Total Pills" value={newMedForm.total_quantity} onChange={e => setNewMedForm({ ...newMedForm, total_quantity: e.target.value })} required />
+                  <input type="number" placeholder="Alert threshold (e.g. 5)" value={newMedForm.refillAlertAt} onChange={e => setNewMedForm({ ...newMedForm, refillAlertAt: e.target.value })} required />
                   <button type="submit" className="btn-primary">Save Medicine</button>
                 </form>
               </section>
@@ -275,14 +275,13 @@ function App() {
                           <p><strong>{reminder.prescriptionId?.medicineId?.name}</strong></p>
                         </div>
                         {takenStatuses[reminder._id] ? (
-                          <span className={`badge ${
-                            takenStatuses[reminder._id] === 'Late' ? 'danger' :
-                            takenStatuses[reminder._id] === 'Early' ? 'warning' :
-                            'safe'
-                          }`} style={{fontSize: '14px', padding: '6px 12px'}}>
+                          <span className={`badge ${takenStatuses[reminder._id] === 'Late' ? 'danger' :
+                              takenStatuses[reminder._id] === 'Early' ? 'warning' :
+                                'safe'
+                            }`} style={{ fontSize: '14px', padding: '6px 12px' }}>
                             {takenStatuses[reminder._id] === 'Late' ? 'Late Taken' :
-                             takenStatuses[reminder._id] === 'Early' ? 'Early Taken' :
-                             'Taken'}
+                              takenStatuses[reminder._id] === 'Early' ? 'Early Taken' :
+                                'Taken'}
                           </span>
                         ) : (
                           <button onClick={() => handleTakeDose(reminder.prescriptionId?._id, reminder.timeToTake, reminder._id)} className="btn-success icon-btn">
@@ -316,7 +315,7 @@ function App() {
             <div className="tab-view">
               <section className="card">
                 <h3>📚 Medicine Database</h3>
-                <p style={{marginBottom: '16px', color: 'var(--text-muted)'}}>Here is your full list of medications and their current stock levels.</p>
+                <p style={{ marginBottom: '16px', color: 'var(--text-muted)' }}>Here is your full list of medications and their current stock levels.</p>
                 <div className="medicine-list">
                   {medicines.length === 0 ? <p className="empty-text">No active medicines.</p> : medicines.map(med => (
                     <div key={med._id} className="medicine-item">
@@ -337,7 +336,7 @@ function App() {
             <div className="tab-view">
               <section className="card">
                 <h3>🩺 Symptom Checker</h3>
-                <p style={{marginBottom: '20px', color: 'var(--text-muted)'}}>Select all the symptoms you are currently experiencing and we will analyze possible conditions.</p>
+                <p style={{ marginBottom: '20px', color: 'var(--text-muted)' }}>Select all the symptoms you are currently experiencing and we will analyze possible conditions.</p>
 
                 <div className="symptom-grid">
                   {SYMPTOM_LIST.map(symptom => (
@@ -346,14 +345,14 @@ function App() {
                         type="checkbox"
                         checked={selectedSymptoms.includes(symptom)}
                         onChange={() => toggleSymptom(symptom)}
-                        style={{display: 'none'}}
+                        style={{ display: 'none' }}
                       />
                       {symptom}
                     </label>
                   ))}
                 </div>
 
-                <div style={{marginTop: '24px', display: 'flex', gap: '12px', alignItems: 'center'}}>
+                <div style={{ marginTop: '24px', display: 'flex', gap: '12px', alignItems: 'center' }}>
                   <button onClick={handleSymptomCheck} className="btn-primary" disabled={symptomLoading}>
                     {symptomLoading ? 'Analyzing...' : '🔍 Analyze Symptoms'}
                   </button>
@@ -367,33 +366,31 @@ function App() {
                 <section className="card">
                   <h3>📋 Analysis Results</h3>
 
-                  <div style={{display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px'}}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
                     <span>Overall Severity:</span>
-                    <span className={`badge ${
-                      symptomResult.overallSeverity === 'Severe' ? 'danger' :
-                      symptomResult.overallSeverity === 'Moderate' ? 'warning' : 'safe'
-                    }`} style={{fontSize: '14px', padding: '6px 14px'}}>
+                    <span className={`badge ${symptomResult.overallSeverity === 'Severe' ? 'danger' :
+                        symptomResult.overallSeverity === 'Moderate' ? 'warning' : 'safe'
+                      }`} style={{ fontSize: '14px', padding: '6px 14px' }}>
                       {symptomResult.overallSeverity}
                     </span>
                   </div>
 
                   {symptomResult.message && (
-                    <p style={{color: 'var(--text-muted)', fontStyle: 'italic'}}>{symptomResult.message}</p>
+                    <p style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>{symptomResult.message}</p>
                   )}
 
                   {symptomResult.conditions && symptomResult.conditions.map((cond, i) => (
                     <div key={i} className="condition-card">
-                      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px'}}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                         <h4>{cond.name}</h4>
-                        <span className={`badge ${
-                          cond.severity === 'Severe' ? 'danger' :
-                          cond.severity === 'Moderate' ? 'warning' : 'safe'
-                        }`}>{cond.severity}</span>
+                        <span className={`badge ${cond.severity === 'Severe' ? 'danger' :
+                            cond.severity === 'Moderate' ? 'warning' : 'safe'
+                          }`}>{cond.severity}</span>
                       </div>
-                      <p style={{color: 'var(--text-muted)', fontSize: '14px', marginBottom: '8px'}}>
+                      <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '8px' }}>
                         Matched symptoms: <strong>{cond.matchedSymptoms.join(', ')}</strong>
                       </p>
-                      <p style={{fontSize: '14px', lineHeight: '1.6'}}>{cond.feedback}</p>
+                      <p style={{ fontSize: '14px', lineHeight: '1.6' }}>{cond.feedback}</p>
                     </div>
                   ))}
                 </section>

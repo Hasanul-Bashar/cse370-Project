@@ -24,7 +24,7 @@ mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
 // FEATURE 1: AUTHENTICATION (Signup & Login)
 // ============================================================
 
-// POST /api/signup — Create a new user account
+//Create new user 
 app.post('/api/signup', async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -39,7 +39,7 @@ app.post('/api/signup', async (req, res) => {
   }
 });
 
-// POST /api/login — Verify credentials and log the user in
+// Verify and login user
 app.post('/api/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -56,7 +56,7 @@ app.post('/api/login', async (req, res) => {
 // FEATURE 2: MEDICINE MANAGEMENT (Add & Remove)
 // ============================================================
 
-// GET /api/medicines/:userId — Fetch all active medicines for a user
+// Fetch all active medicines 
 app.get('/api/medicines/:userId', async (req, res) => {
   try {
     const medicines = await PrescribedMed.find({ userId: req.params.userId, active: true }).populate('medicineId');
@@ -66,16 +66,16 @@ app.get('/api/medicines/:userId', async (req, res) => {
   }
 });
 
-// POST /api/medicines — Add a new medicine + create reminders for each scheduled time
+// Add new medicine + create reminders 
 app.post('/api/medicines', async (req, res) => {
   try {
     const { name, dose, frequency, scheduledTimes, total_quantity, refillAlertAt, userId } = req.body;
 
-    // Step 1: Create the Medicine entry in the database
+
     const newMedicine = new Medicine({ name, description: 'User added' });
     const savedMed = await newMedicine.save();
 
-    // Step 2: Link the medicine to the user via PrescribedMed
+
     const newPrescription = new PrescribedMed({
       userId,
       medicineId: savedMed._id,
@@ -83,7 +83,7 @@ app.post('/api/medicines', async (req, res) => {
       frequency,
       totalQuantity: parseInt(total_quantity),
       remainingQuantity: parseInt(total_quantity),
-      refillAlertAt: refillAlertAt ? parseInt(refillAlertAt) : 5 // Default threshold: 5 pills
+      refillAlertAt: refillAlertAt ? parseInt(refillAlertAt) : null
     });
     const savedPrescription = await newPrescription.save();
 
@@ -120,7 +120,7 @@ app.delete('/api/medicines/:id', async (req, res) => {
 // FEATURE 3: DOSE REMINDER (Schedule & Mark as Taken)
 // ============================================================
 
-// GET /api/schedule/:userId — Fetch today's reminder schedule for a user
+// Today's reminder schedule 
 app.get('/api/schedule/:userId', async (req, res) => {
   try {
     // Get all active prescriptions for this user
@@ -138,22 +138,22 @@ app.get('/api/schedule/:userId', async (req, res) => {
   }
 });
 
-// POST /api/doselogs — Log a dose and determine if it was Taken, Early, or Late
+// Taken, Early, or Late
 app.post('/api/doselogs', async (req, res) => {
   try {
     const { prescriptionId, scheduledTime, timeTaken } = req.body;
 
-    // Compare the scheduled time vs the actual time taken
+    // Scheduled time vs the actual time compare
     const schedDate = new Date(`1970/01/01 ${scheduledTime}`);
     const takenDate = new Date(`1970/01/01 ${timeTaken}`);
     const diffHours = (takenDate - schedDate) / (1000 * 60 * 60);
 
-    // Determine status based on the time difference
+    // Status based on the time diff
     let status = 'Taken';
     if (diffHours >= 1) {
-      status = 'Late';    // Taken 1+ hour AFTER the scheduled time
+      status = 'Late';
     } else if (diffHours <= -1) {
-      status = 'Early';   // Taken 1+ hour BEFORE the scheduled time
+      status = 'Early';
     }
 
     // Save the dose log record
@@ -166,7 +166,7 @@ app.post('/api/doselogs', async (req, res) => {
     });
     await newLog.save();
 
-    // Reduce the remaining pill count by 1
+    // Pill count -1
     await PrescribedMed.findByIdAndUpdate(prescriptionId, { $inc: { remainingQuantity: -1 } });
 
     res.status(201).json({ message: `Dose logged as ${status}`, status });
@@ -174,6 +174,7 @@ app.post('/api/doselogs', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 
 // ============================================================
@@ -186,7 +187,7 @@ app.get('/api/refill-alerts/:userId', async (req, res) => {
     const medicines = await PrescribedMed.find({ userId: req.params.userId, active: true }).populate('medicineId');
 
     // Filter: only return medicines where remaining stock is at or below the alert threshold
-    const lowStockMeds = medicines.filter(med => med.remainingQuantity <= (med.refillAlertAt || 5));
+    const lowStockMeds = medicines.filter(med => med.remainingQuantity <= med.refillAlertAt);
 
     res.json(lowStockMeds);
   } catch (err) {
@@ -200,66 +201,67 @@ app.get('/api/refill-alerts/:userId', async (req, res) => {
 // ============================================================
 
 // Rule-based diagnosis engine
+// SYMPTOM CHECKER
 const diagnosisRules = [
   {
     name: 'Dengue Fever',
     symptoms: ['Fever', 'Headache', 'Joint pain', 'Muscle aches', 'Fatigue'],
     minMatch: 4,
     severity: 'Severe',
-    feedback: 'Your combination of symptoms strongly suggests Dengue Fever. This is a serious condition. Please visit a doctor immediately and request a blood platelet count test.'
+    feedback: 'Symptoms are pointing to Dengue Fever. Patient should consult a doctor as soon as possible.'
   },
   {
     name: 'Hypertensive Episode',
     symptoms: ['Headache', 'Blurred vision', 'Dizziness'],
     minMatch: 3,
     severity: 'Severe',
-    feedback: 'Headache with Blurred Vision and Dizziness together may indicate a hypertensive episode or a neurological concern. Seek medical attention immediately.'
+    feedback: 'Symptoms are pointing to Hypertensive Episode. Patient should seek medical attention immediately.'
   },
   {
     name: 'Influenza (Flu)',
     symptoms: ['Fever', 'Fatigue', 'Headache', 'Muscle aches'],
     minMatch: 3,
     severity: 'Moderate',
-    feedback: 'Your symptoms are consistent with Influenza (Flu). Rest, stay hydrated, and consider antiviral medication. See a doctor if your fever exceeds 39°C or lasts more than 3 days.'
+    feedback: 'Symptoms are pointing to Influenza (Flu). For the time being patient should take rest, stay hydrated, and consider antiviral medication. If fever exceeds 39°C or lasts more than 3 days patient should consult a doctor.'
   },
   {
     name: 'Migraine',
     symptoms: ['Headache', 'Nausea', 'Blurred vision', 'Dizziness'],
     minMatch: 3,
     severity: 'Moderate',
-    feedback: 'Your symptoms suggest a Migraine episode. Rest in a dark, quiet room and avoid screens. If migraines are recurring, consult a neurologist.'
+    feedback: 'Symptoms are pointing to a Migraine episode. Patient should rest in a dark, quiet room and avoid screens. If migraines are recurring, patient should consult a neurologist.'
   },
   {
     name: 'Arthritis / Rheumatic Condition',
     symptoms: ['Joint pain', 'Muscle aches', 'Fatigue'],
     minMatch: 3,
     severity: 'Moderate',
-    feedback: 'Your symptoms may indicate an arthritic or rheumatic condition. Consult a rheumatologist for a proper diagnosis and consider anti-inflammatory medication.'
+    feedback: 'Symptoms are pointing to an arthritic or rheumatic condition. Patient should consult a rheumatologist for a proper diagnosis.'
   },
   {
     name: 'Gastroenteritis (Stomach Flu)',
     symptoms: ['Nausea', 'Diarrhea', 'Fever', 'Fatigue'],
     minMatch: 2,
     severity: 'Mild',
-    feedback: 'Your symptoms indicate Gastroenteritis (stomach flu). Stay well-hydrated with water and oral rehydration salts. Eat light, bland foods and rest.'
+    feedback: 'Symptoms are pointing to Gastroenteritis (stomach flu). Patient should stay well-hydrated with water and oral rehydration salts. Patient should eat light, bland foods and rest.'
   },
   {
     name: 'Dehydration',
     symptoms: ['Dizziness', 'Headache', 'Fatigue', 'Nausea'],
     minMatch: 3,
     severity: 'Mild',
-    feedback: 'Your symptoms may be caused by dehydration. Drink plenty of water and electrolyte-rich fluids immediately. Avoid caffeine and alcohol.'
+    feedback: 'Symptoms can be caused by dehydration. Patient should drink plenty of water and electrolyte-rich fluids immediately.'
   },
   {
     name: 'General Viral Infection',
     symptoms: ['Fever', 'Fatigue', 'Muscle aches', 'Headache'],
     minMatch: 2,
     severity: 'Mild',
-    feedback: 'Your symptoms suggest a general viral infection. Rest, drink plenty of fluids, and monitor your temperature. See a doctor if the fever persists beyond 3 days.'
+    feedback: 'Symptoms are pointing to a general viral infection. Patient should rest, drink plenty of fluids, and monitor temperature. See a doctor if the fever stays beyond 3 days.'
   }
 ];
 
-// POST /api/symptoms/check — Analyze selected symptoms and return possible conditions
+// Analyze symp, return conditions
 app.post('/api/symptoms/check', async (req, res) => {
   try {
     const { userId, selectedSymptoms } = req.body;
@@ -268,21 +270,20 @@ app.post('/api/symptoms/check', async (req, res) => {
       return res.status(400).json({ error: 'Please select at least one symptom.' });
     }
 
-    // Score each rule by how many of the user's symptoms match
     const results = diagnosisRules
       .map(rule => {
         const matchedSymptoms = rule.symptoms.filter(s => selectedSymptoms.includes(s));
         return { ...rule, matchCount: matchedSymptoms.length, matchedSymptoms };
       })
-      .filter(rule => rule.matchCount >= rule.minMatch) // Only include rules with enough matches
-      .sort((a, b) => b.matchCount - a.matchCount);    // Best matches first
+      .filter(rule => rule.matchCount >= rule.minMatch)
+      .sort((a, b) => b.matchCount - a.matchCount);
 
-    // Determine overall severity (worst case wins)
+    // severity
     let overallSeverity = 'Mild';
     if (results.some(r => r.severity === 'Severe')) overallSeverity = 'Severe';
     else if (results.some(r => r.severity === 'Moderate')) overallSeverity = 'Moderate';
 
-    // Save the symptom log to the database
+    // Save symp
     if (userId) {
       const newSymptom = new Symptom({
         userId,
@@ -299,7 +300,7 @@ app.post('/api/symptoms/check', async (req, res) => {
       overallSeverity,
       conditions: results.length > 0 ? results : null,
       message: results.length === 0
-        ? 'No specific condition identified based on your symptoms. Monitor your health and consult a doctor if symptoms worsen.'
+        ? 'No specific condition identified. Please monitor your health and consult a doctor if symptoms worsen.'
         : null
     });
   } catch (err) {
