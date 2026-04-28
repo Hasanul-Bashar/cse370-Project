@@ -181,7 +181,6 @@ app.post('/api/doselogs', async (req, res) => {
 // FEATURE 4: REFILL ALERTS
 // ============================================================
 
-// Returns medicines below threshold
 app.get('/api/refill-alerts/:userId', async (req, res) => {
   try {
     const medicines = await PrescribedMed.find({ userId: req.params.userId, active: true }).populate('medicineId');
