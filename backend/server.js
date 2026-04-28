@@ -181,12 +181,12 @@ app.post('/api/doselogs', async (req, res) => {
 // FEATURE 4: REFILL ALERTS
 // ============================================================
 
-// GET /api/refill-alerts/:userId — Returns medicines that are below their refill threshold
+// Returns medicines below threshold
 app.get('/api/refill-alerts/:userId', async (req, res) => {
   try {
     const medicines = await PrescribedMed.find({ userId: req.params.userId, active: true }).populate('medicineId');
 
-    // Filter: only return medicines where remaining stock is at or below the alert threshold
+    // return medicines
     const lowStockMeds = medicines.filter(med => med.remainingQuantity <= med.refillAlertAt);
 
     res.json(lowStockMeds);
@@ -312,16 +312,14 @@ app.post('/api/symptoms/check', async (req, res) => {
 // FEATURE 6: WEEKLY REPORT
 // ============================================================
 
-// POST /api/weekly-report/generate
 app.post('/api/weekly-report/generate', async (req, res) => {
   try {
     const { userId } = req.body;
     if (!userId) return res.status(400).json({ error: 'userId is required' });
 
-    // Find all active prescriptions for the user
     const prescriptions = await PrescribedMed.find({ userId, active: true });
 
-    // Determine the date range (last 7 days)
+    // date range (last 7 days)
     const endDate = new Date();
     const startDate = new Date();
     startDate.setDate(endDate.getDate() - 7);
@@ -329,38 +327,32 @@ app.post('/api/weekly-report/generate', async (req, res) => {
     const generatedReports = [];
 
     for (const rx of prescriptions) {
-      // Find all reminders for this prescription
       const reminders = await Reminder.find({ prescriptionId: rx._id, isActive: true });
       const dailyDoses = reminders.length;
 
-      // Expected total doses for 7 days
       const totalDose = dailyDoses * 7;
 
-      // If there are no reminders, we can't calculate adherence properly, skip
       if (totalDose === 0) continue;
 
-      // Find DoseLogs for this prescription in the last 7 days
+      // logs for last 7 days
       const doseLogs = await DoseLog.find({
         prescriptionId: rx._id,
         dateTaken: { $gte: startDate, $lte: endDate }
       });
 
-      // Calculate doses taken
+      // Calculate
       const doseTaken = doseLogs.filter(log => ['Taken', 'Early', 'Late'].includes(log.status)).length;
 
-      // Calculate doses missed
-      const doseMissed = Math.max(0, totalDose - doseTaken); // Ensure it doesn't go below 0
+      const doseMissed = Math.max(0, totalDose - doseTaken);
 
-      // Calculate success rate
       const successRate = (doseTaken / totalDose) * 100;
 
-      // Fetch last week's rate from the most recent WeeklyReport for this prescription
       const lastReport = await WeeklyReport.findOne({ prescriptionId: rx._id })
-        .sort({ reportDate: -1 }); // Get the latest one
+        .sort({ reportDate: -1 });
 
       const lastWeeksRate = lastReport ? lastReport.successRate : null;
 
-      // Create new WeeklyReport
+      // new WeeklyReport
       const newReport = new WeeklyReport({
         userId,
         prescriptionId: rx._id,
