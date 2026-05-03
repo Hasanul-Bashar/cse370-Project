@@ -111,8 +111,8 @@ app.post('/api/medicines', async (req, res) => {
 
     let med = await Medicine.findOne({ name });
     if (!med) {
-        med = new Medicine({ name, description: 'User added' });
-        await med.save();
+      med = new Medicine({ name, description: 'User added' });
+      await med.save();
     }
 
     const newPrescription = new PrescribedMed({
@@ -433,15 +433,15 @@ app.get('/api/appointments/:userId', async (req, res) => {
 app.post('/api/appointments', async (req, res) => {
   try {
     const { userId, familyMemberId, date, time, doctorName, hospitalName, type, note } = req.body;
-    const newAppointment = new Appointment({ 
-      userId, 
-      familyMemberId: familyMemberId || null, 
-      date, 
-      time, 
-      doctorName, 
-      hospitalName, 
-      type, 
-      note 
+    const newAppointment = new Appointment({
+      userId,
+      familyMemberId: familyMemberId || null,
+      date,
+      time,
+      doctorName,
+      hospitalName,
+      type,
+      note
     });
     await newAppointment.save();
     res.status(201).json(newAppointment);
@@ -523,7 +523,7 @@ const MEDICINE_DATABASE = [
     usage: 'Bacterial infections, Respiratory infections',
     mealInstructions: 'Before Meal',
     sideEffects: 'Diarrhea, vomiting, stomach pain',
-    alternates: ['Zimax', 'Tridosil']
+    alternates: ['Zimax', 'Tridosil', 'Azin']
   },
   {
     name: 'Amodis',
@@ -541,6 +541,135 @@ const MEDICINE_DATABASE = [
     sideEffects: 'Nausea, stomach upset',
     alternates: ['Comet', 'Glucomin']
   }
+  {
+    name: 'Fexo',
+    class: 'Antihistamine',
+    usage: 'Allergy, Sneezing, Runny nose',
+    mealInstructions: 'Before Meal',
+    sideEffects: 'Headache, dizziness',
+    alternates: ['Alatrol', 'Deslor', 'Fenadin']
+  },
+  {
+    name: 'Flagyl',
+    class: 'Antibiotic / Antiprotozoal',
+    usage: 'Diarrhea, Amoebiasis, Bacterial infections',
+    mealInstructions: 'After Meal',
+    sideEffects: 'Nausea, metallic taste, dry mouth',
+    alternates: ['Amodis', 'Metryl', 'Filmet']
+  },
+  {
+    name: 'Ciprocin',
+    class: 'Antibiotic (Fluoroquinolone)',
+    usage: 'Urinary tract infection, Bacterial infections',
+    mealInstructions: 'After Meal',
+    sideEffects: 'Nausea, dizziness',
+    alternates: ['Ciprox', 'Neofloxin']
+  },
+  {
+    name: 'Alatrol',
+    class: 'Antihistamine',
+    usage: 'Allergy, Itching, Urticaria',
+    mealInstructions: 'After Meal',
+    sideEffects: 'Drowsiness, dry mouth',
+    alternates: ['Fexo', 'Deslor']
+  },
+  {
+    name: 'Losectil',
+    class: 'Proton Pump Inhibitor (Antacid)',
+    usage: 'Gastric ulcer, Heartburn',
+    mealInstructions: 'Before Meal',
+    sideEffects: 'Abdominal pain, nausea',
+    alternates: ['Seclo', 'Sergel']
+  },
+  {
+    name: 'Cef-3',
+    class: 'Antibiotic (Cephalosporin)',
+    usage: 'Bacterial infections, Typhoid',
+    mealInstructions: 'After Meal',
+    sideEffects: 'Stomach upset, rash',
+    alternates: ['Fixacef', 'Cefixime']
+  },
+  {
+    name: 'Algin',
+    class: 'Antacid / Anti-reflux (Alginic acid preparation)',
+    usage: 'Acid reflux, Heartburn, Indigestion',
+    mealInstructions: 'After Meal',
+    sideEffects: 'Bloating, mild nausea (rare)',
+    alternates: ['Gaviscon', 'Algicid']
+  },
+  {
+    name: 'Monas',
+    class: 'Leukotriene Receptor Antagonist',
+    usage: 'Allergic rhinitis, Asthma prevention',
+    mealInstructions: 'After Meal',
+    sideEffects: 'Headache, abdominal pain, fatigue',
+    alternates: ['Montair', 'Montene']
+  },
+  {
+    name: 'Monaire',
+    class: 'Leukotriene Receptor Antagonist',
+    usage: 'Allergic rhinitis, Asthma prevention',
+    mealInstructions: 'After Meal',
+    sideEffects: 'Headache, dizziness, abdominal pain',
+    alternates: ['Monas', 'Montair', 'Montene']
+  },
+  {
+    name: 'Fecilax',
+    class: 'Laxative (Bulk-forming / Stool softener)',
+    usage: 'Constipation, Irregular bowel movement',
+    mealInstructions: 'After Meal / With plenty of water',
+    sideEffects: 'Bloating, gas, abdominal discomfort',
+    alternates: ['Dulcolax', 'Laxol']
+  },
+  {
+    name: 'Omidon',
+    class: 'Antiemetic / Prokinetic (Domperidone)',
+    usage: 'Nausea, Vomiting, Indigestion, Gastric discomfort',
+    mealInstructions: 'Before Meal',
+    sideEffects: 'Dry mouth, abdominal cramps, headache',
+    alternates: ['Domstal', 'Motigut', 'Domperon']
+  },
+  {
+    name: 'Tamen Turbo',
+    class: 'Analgesic (Opioid + Paracetamol Combination)',
+    usage: 'Moderate to severe pain (e.g., injury, post-operative pain)',
+    mealInstructions: 'After Meal',
+    sideEffects: 'Drowsiness, nausea, dizziness, constipation, dependence risk',
+    alternates: ['Tamen', 'Tramadol', 'Ultracet']
+  },
+  {
+    name: 'Rivortil',
+    class: 'Benzodiazepine (Clonazepam)',
+    usage: 'Anxiety, Panic disorder, Seizures, Sleep problems (short-term)',
+    mealInstructions: 'After Meal / Before Sleep',
+    sideEffects: 'Drowsiness, dizziness, dependence risk, memory issues',
+    alternates: ['Clonazepam', 'Clonotril']
+  },
+  {
+    name: 'Pevison Cream',
+    class: 'Topical Antifungal + Corticosteroid',
+    usage: 'Fungal skin infections, Itching, Rash, Dermatitis',
+    mealInstructions: 'Not applicable (topical use)',
+    sideEffects: 'Skin thinning (with long use), burning sensation, irritation',
+    alternates: ['Betnovate-N', 'Fungidal-B', 'Quadriderm']
+  },
+  {
+    name: 'Betameson Cream',
+    class: 'Topical Corticosteroid (Betamethasone)',
+    usage: 'Skin inflammation, eczema, allergic skin reactions, itching',
+    mealInstructions: 'Not applicable (topical use)',
+    sideEffects: 'Skin thinning, burning, irritation, discoloration (with prolonged use)',
+    alternates: ['Betnovate', 'Celestoderm', 'Bexitrol']
+  },
+  {
+    name: 'Fungidal',
+    class: 'Topical Antifungal',
+    usage: 'Fungal skin infections, ringworm, athlete’s foot, itching',
+    mealInstructions: 'Not applicable (topical use)',
+    sideEffects: 'Mild burning, redness, skin irritation',
+    alternates: ['Canesten', 'Clotrimazole cream', 'Lamisil']
+  }
+
 ];
 
 // ============================================================
