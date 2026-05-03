@@ -8,7 +8,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [medicines, setMedicines] = useState([]);
   const [schedule, setSchedule] = useState([]);
-  const [newMedForm, setNewMedForm] = useState({ name: '', dose: '', frequency: '', scheduledTimes: [''], total_quantity: '', refillAlertAt: '' });
+  const [newMedForm, setNewMedForm] = useState({ name: '', dose: '', frequency: '', scheduledTimes: [''], total_quantity: '', refillAlertAt: '', familyMemberId: '' });
   const [takenStatuses, setTakenStatuses] = useState({});
   const [lowStockMeds, setLowStockMeds] = useState([]);
 
@@ -21,6 +21,64 @@ function App() {
   // Weekly Report State
   const [weeklyReports, setWeeklyReports] = useState([]);
   const [reportLoading, setReportLoading] = useState(false);
+
+  // Appointments & Lab Tests State
+  const [appointments, setAppointments] = useState([]);
+  const [tests, setTests] = useState([]);
+  const [newApptForm, setNewApptForm] = useState({ doctorName: '', hospitalName: '', date: '', time: '', type: '', note: '', familyMemberId: '' });
+  const [newTestForm, setNewTestForm] = useState({ testName: '', hospitalName: '', date: '', resultStatus: 'Pending', resultDetails: '', appointmentId: '', familyMemberId: '' });
+
+  // Family State
+  const [familyMembers, setFamilyMembers] = useState([]);
+  const [newFamilyForm, setNewFamilyForm] = useState({ name: '', relation: '' });
+
+  // Med Info State
+  const [medSearchQuery, setMedSearchQuery] = useState('');
+  const [medInfoResult, setMedInfoResult] = useState(null);
+  const [medInfoLoading, setMedInfoLoading] = useState(false);
+  const [medInfoError, setMedInfoError] = useState(null);
+
+  const handleGetMedDetails = async (e) => {
+    if (e) e.preventDefault();
+    if (!medSearchQuery) return;
+    setMedInfoLoading(true);
+    setMedInfoResult(null);
+    setMedInfoError(null);
+    try {
+      const response = await fetch(`http://localhost:5000/api/medicine-details?name=${medSearchQuery}`);
+      const data = await response.json();
+      if (response.ok) {
+        setMedInfoResult(data);
+      } else {
+        setMedInfoError(data.error || 'Medicine not found');
+      }
+    } catch (err) {
+      setMedInfoError("Error connecting to server");
+    } finally {
+      setMedInfoLoading(false);
+    }
+  };
+
+  const handleGetAlternates = async (e) => {
+    if (e) e.preventDefault();
+    if (!medSearchQuery) return;
+    setMedInfoLoading(true);
+    setMedInfoResult(null);
+    setMedInfoError(null);
+    try {
+      const response = await fetch(`http://localhost:5000/api/medicine-alternates?name=${medSearchQuery}`);
+      const data = await response.json();
+      if (response.ok) {
+        setMedInfoResult(data);
+      } else {
+        setMedInfoError(data.error || 'Medicine not found');
+      }
+    } catch (err) {
+      setMedInfoError("Error connecting to server");
+    } finally {
+      setMedInfoLoading(false);
+    }
+  };
 
   const fetchData = () => {
     if (!user) return;
@@ -38,6 +96,24 @@ function App() {
     fetch(`http://localhost:5000/api/refill-alerts/${user.id}`)
       .then(res => res.json())
       .then(data => setLowStockMeds(data))
+      .catch(err => console.error(err));
+
+    // Fetch Appointments
+    fetch(`http://localhost:5000/api/appointments/${user.id}`)
+      .then(res => res.json())
+      .then(data => setAppointments(data))
+      .catch(err => console.error(err));
+
+    // Fetch Lab Tests
+    fetch(`http://localhost:5000/api/tests/${user.id}`)
+      .then(res => res.json())
+      .then(data => setTests(data))
+      .catch(err => console.error(err));
+
+    // Fetch Family Members
+    fetch(`http://localhost:5000/api/family/${user.id}`)
+      .then(res => res.json())
+      .then(data => setFamilyMembers(data))
       .catch(err => console.error(err));
   };
 
@@ -75,7 +151,7 @@ function App() {
         body: JSON.stringify({ ...newMedForm, userId: user.id })
       });
       if (response.ok) {
-        setNewMedForm({ name: '', dose: '', frequency: '', scheduledTimes: [''], total_quantity: '', refillAlertAt: '' });
+        setNewMedForm({ name: '', dose: '', frequency: '', scheduledTimes: [''], total_quantity: '', refillAlertAt: '', familyMemberId: '' });
         fetchData();
         setActiveTab('medicines'); // Switch to medicines tab to see it added
       } else {
@@ -113,6 +189,77 @@ function App() {
       }
     } catch (err) {
       alert("Failed to log dose");
+    }
+  };
+
+  const handleAddAppointment = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch('http://localhost:5000/api/appointments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...newApptForm, userId: user.id })
+      });
+      if (response.ok) {
+        setNewApptForm({ doctorName: '', hospitalName: '', date: '', time: '', type: '', note: '', familyMemberId: '' });
+        fetchData();
+      } else {
+        alert('Error adding appointment');
+      }
+    } catch (err) {
+      alert("Failed to connect to server.");
+    }
+  };
+
+  const handleAddTest = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch('http://localhost:5000/api/tests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...newTestForm, userId: user.id })
+      });
+      if (response.ok) {
+        setNewTestForm({ testName: '', hospitalName: '', date: '', resultStatus: 'Pending', resultDetails: '', appointmentId: '', familyMemberId: '' });
+        fetchData();
+      } else {
+        alert('Error adding lab test');
+      }
+    } catch (err) {
+      alert("Failed to connect to server.");
+    }
+  };
+
+  const handleAddFamilyMember = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch('http://localhost:5000/api/family', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...newFamilyForm, userId: user.id })
+      });
+      if (response.ok) {
+        setNewFamilyForm({ name: '', relation: '' });
+        fetchData();
+      } else {
+        alert('Error adding family member');
+      }
+    } catch (err) {
+      alert("Failed to connect to server.");
+    }
+  };
+
+  const handleRemoveFamilyMember = async (id) => {
+    if (!confirm("Remove this family member? Related records might become unlinked.")) return;
+    try {
+      const response = await fetch(`http://localhost:5000/api/family/${id}`, {
+        method: 'DELETE'
+      });
+      if (response.ok) {
+        fetchData();
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -225,6 +372,18 @@ function App() {
           <button className={activeTab === 'weekly-report' ? 'active' : ''} onClick={() => setActiveTab('weekly-report')}>
             Weekly Reports
           </button>
+          <button className={activeTab === 'appointments' ? 'active' : ''} onClick={() => setActiveTab('appointments')}>
+            Appointments & Tests
+          </button>
+          <button className={activeTab === 'family' ? 'active' : ''} onClick={() => setActiveTab('family')}>
+            Family Management
+          </button>
+          <button className={activeTab === 'med-details' ? 'active' : ''} onClick={() => { setActiveTab('med-details'); setMedInfoResult(null); }}>
+            Medicine Details
+          </button>
+          <button className={activeTab === 'alternates' ? 'active' : ''} onClick={() => { setActiveTab('alternates'); setMedInfoResult(null); }}>
+            Alternate Meds
+          </button>
         </nav>
         <div className="sidebar-footer">
           <button onClick={() => setUser(null)} className="btn-logout">Logout</button>
@@ -261,9 +420,15 @@ function App() {
               {/* Add Medicine Form */}
               <section className="card">
                 <h3>➕ Add New Medicine</h3>
-                <form onSubmit={handleAddMedicine} className="add-med-form">
+                <form onSubmit={handleAddMedicine} className="add-med-form grid-2-col-form">
                   <input type="text" placeholder="Medicine Name" value={newMedForm.name} onChange={e => setNewMedForm({ ...newMedForm, name: e.target.value })} required />
                   <input type="text" placeholder="Dose (e.g. 500mg)" value={newMedForm.dose} onChange={e => setNewMedForm({ ...newMedForm, dose: e.target.value })} required />
+                  <select value={newMedForm.familyMemberId} onChange={e => setNewMedForm({ ...newMedForm, familyMemberId: e.target.value })}>
+                    <option value="">For Self (Primary User)</option>
+                    {familyMembers.map(member => (
+                      <option key={member._id} value={member._id}>For {member.name} ({member.relation})</option>
+                    ))}
+                  </select>
                   <select value={newMedForm.frequency} onChange={e => {
                     const val = e.target.value;
                     let count = 1;
@@ -299,12 +464,17 @@ function App() {
                       <div key={reminder._id} className="schedule-item">
                         <div className="schedule-info">
                           <h4>{reminder.timeToTake}</h4>
-                          <p><strong>{reminder.prescriptionId?.medicineId?.name}</strong></p>
+                          <p>
+                            <strong>{reminder.prescriptionId?.medicineId?.name}</strong> 
+                            <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: '8px' }}>
+                              {reminder.prescriptionId?.familyMemberId ? `(${reminder.prescriptionId.familyMemberId.name})` : '(Self)'}
+                            </span>
+                          </p>
                         </div>
                         {takenStatuses[reminder._id] ? (
                           <span className={`badge ${takenStatuses[reminder._id] === 'Late' ? 'danger' :
-                              takenStatuses[reminder._id] === 'Early' ? 'warning' :
-                                'safe'
+                            takenStatuses[reminder._id] === 'Early' ? 'warning' :
+                              'safe'
                             }`} style={{ fontSize: '14px', padding: '6px 12px' }}>
                             {takenStatuses[reminder._id] === 'Late' ? 'Late Taken' :
                               takenStatuses[reminder._id] === 'Early' ? 'Early Taken' :
@@ -328,7 +498,7 @@ function App() {
                       <div key={med._id} className="medicine-item">
                         <div className="med-details">
                           <h4>{med.medicineId?.name}</h4>
-                          <p>Dose: {med.dose}</p>
+                          <p>Dose: {med.dose} | For: {med.familyMemberId ? med.familyMemberId.name : 'Self'}</p>
                         </div>
                       </div>
                     ))}
@@ -347,8 +517,9 @@ function App() {
                   {medicines.length === 0 ? <p className="empty-text">No active medicines.</p> : medicines.map(med => (
                     <div key={med._id} className="medicine-item">
                       <div className="med-details">
-                        <h4>{med.medicineId?.name}</h4>
-                        <p>{med.dose} • {med.frequency}</p>
+                        <h4>{med.medicineId?.name} ({med.dose})</h4>
+                        <p>For: {med.familyMemberId ? med.familyMemberId.name : 'Self'}</p>
+                        <p style={{ fontSize: '13px' }}>Frequency: {med.frequency}</p>
                         <span className="badge safe">Stock: {med.remainingQuantity} / {med.totalQuantity}</span>
                       </div>
                       <button onClick={() => handleRemoveMedicine(med._id)} className="btn-danger">Delete</button>
@@ -396,7 +567,7 @@ function App() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
                     <span>Overall Severity:</span>
                     <span className={`badge ${symptomResult.overallSeverity === 'Severe' ? 'danger' :
-                        symptomResult.overallSeverity === 'Moderate' ? 'warning' : 'safe'
+                      symptomResult.overallSeverity === 'Moderate' ? 'warning' : 'safe'
                       }`} style={{ fontSize: '14px', padding: '6px 14px' }}>
                       {symptomResult.overallSeverity}
                     </span>
@@ -411,7 +582,7 @@ function App() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                         <h4>{cond.name}</h4>
                         <span className={`badge ${cond.severity === 'Severe' ? 'danger' :
-                            cond.severity === 'Moderate' ? 'warning' : 'safe'
+                          cond.severity === 'Moderate' ? 'warning' : 'safe'
                           }`}>{cond.severity}</span>
                       </div>
                       <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '8px' }}>
@@ -445,7 +616,7 @@ function App() {
                           <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginBottom: '12px' }}>
                             <h4 style={{ fontSize: '18px' }}>{medName}</h4>
                             <span className={`badge ${report.successRate === 100 ? 'safe' :
-                                report.successRate >= 50 ? 'warning' : 'danger'
+                              report.successRate >= 50 ? 'warning' : 'danger'
                               }`} style={{ fontSize: '16px' }}>
                               {report.successRate.toFixed(0)}% Success
                             </span>
@@ -466,6 +637,208 @@ function App() {
                   </div>
                 )}
               </section>
+            </div>
+          )}
+
+          {activeTab === 'appointments' && (
+            <div className="tab-view">
+              <div className="grid-2-col">
+                {/* Appointments Section */}
+                <section className="card">
+                  <h3>🗓️ Schedule Appointment</h3>
+                  <form onSubmit={handleAddAppointment} className="add-med-form grid-2-col-form">
+                    <input type="text" placeholder="Doctor Name" value={newApptForm.doctorName} onChange={e => setNewApptForm({ ...newApptForm, doctorName: e.target.value })} required />
+                    <input type="text" placeholder="Hospital Name" value={newApptForm.hospitalName} onChange={e => setNewApptForm({ ...newApptForm, hospitalName: e.target.value })} required />
+                    <select value={newApptForm.familyMemberId} onChange={e => setNewApptForm({ ...newApptForm, familyMemberId: e.target.value })}>
+                      <option value="">For Self (Primary User)</option>
+                      {familyMembers.map(member => (
+                        <option key={member._id} value={member._id}>For {member.name} ({member.relation})</option>
+                      ))}
+                    </select>
+                    <input type="text" placeholder="Type (e.g. General Checkup)" value={newApptForm.type} onChange={e => setNewApptForm({ ...newApptForm, type: e.target.value })} required />
+                    <input type="date" value={newApptForm.date} onChange={e => setNewApptForm({ ...newApptForm, date: e.target.value })} required />
+                    <input type="time" value={newApptForm.time} onChange={e => setNewApptForm({ ...newApptForm, time: e.target.value })} required />
+                    <textarea placeholder="Notes" value={newApptForm.note} onChange={e => setNewApptForm({ ...newApptForm, note: e.target.value })} />
+                    <button type="submit" className="btn-primary">Add Appointment</button>
+                  </form>
+
+                  <div className="schedule-list">
+                    <h4 className="list-section-header">Upcoming Appointments</h4>
+                    {appointments.length === 0 ? <p className="empty-text">No upcoming appointments.</p> : appointments.map(appt => (
+                      <div key={appt._id} className="schedule-item">
+                        <div className="schedule-info">
+                          <h4>{new Date(appt.date).toLocaleDateString()} at {appt.time}</h4>
+                          <p><strong>Dr. {appt.doctorName}</strong> @ {appt.hospitalName}</p>
+                          <p>For: {appt.familyMemberId ? appt.familyMemberId.name : 'Self'}</p>
+                          <p>Type: {appt.type}</p>
+                          {appt.note && <p style={{ fontStyle: 'italic' }}>{appt.note}</p>}
+                        </div>
+                        <span className="badge safe">{appt.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                {/* Lab Tests Section */}
+                <section className="card">
+                  <h3>🧪 Lab Tests</h3>
+                  <form onSubmit={handleAddTest} className="add-med-form grid-2-col-form">
+                    <input type="text" placeholder="Test Name" value={newTestForm.testName} onChange={e => setNewTestForm({ ...newTestForm, testName: e.target.value })} required />
+                    <input type="text" placeholder="Hospital/Lab Name" value={newTestForm.hospitalName} onChange={e => setNewTestForm({ ...newTestForm, hospitalName: e.target.value })} required />
+                    <select value={newTestForm.familyMemberId} onChange={e => setNewTestForm({ ...newTestForm, familyMemberId: e.target.value })}>
+                      <option value="">For Self (Primary User)</option>
+                      {familyMembers.map(member => (
+                        <option key={member._id} value={member._id}>For {member.name} ({member.relation})</option>
+                      ))}
+                    </select>
+                    <input type="date" value={newTestForm.date} onChange={e => setNewTestForm({ ...newTestForm, date: e.target.value })} required />
+                    <input type="text" placeholder="Test Notes" value={newTestForm.resultDetails} onChange={e => setNewTestForm({ ...newTestForm, resultDetails: e.target.value })} />
+                    <button type="submit" className="btn-primary">Add Lab Test</button>
+                  </form>
+
+                  <div className="schedule-list">
+                    <h4 className="list-section-header">Lab Test History</h4>
+                    {tests.length === 0 ? <p className="empty-text">No lab tests recorded.</p> : tests.map(test => (
+                      <div key={test._id} className="schedule-item">
+                        <div className="schedule-info">
+                          <h4>{test.testName}</h4>
+                          <p>{new Date(test.date).toLocaleDateString()} @ {test.hospitalName}</p>
+                          <p>For: {test.familyMemberId ? test.familyMemberId.name : 'Self'}</p>
+                          {test.resultDetails && <p style={{ fontSize: '13px' }}>{test.resultDetails}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'family' && (
+            <div className="tab-view">
+              <section className="card">
+                <h3>👨‍👩‍👧‍👦 Family Management</h3>
+                <p style={{ marginBottom: '20px', color: 'var(--text-muted)' }}>Add family members to track their specific medicines and appointments.</p>
+                
+                <form onSubmit={handleAddFamilyMember} className="add-med-form grid-2-col-form">
+                  <input type="text" placeholder="Member Name" value={newFamilyForm.name} onChange={e => setNewFamilyForm({ ...newFamilyForm, name: e.target.value })} required />
+                  <input type="text" placeholder="Relation (e.g. Mother, Son)" value={newFamilyForm.relation} onChange={e => setNewFamilyForm({ ...newFamilyForm, relation: e.target.value })} required />
+                  <button type="submit" className="btn-primary">Add Member</button>
+                </form>
+              </section>
+
+              <section className="card">
+                <h3>Family Members</h3>
+                <div className="medicine-list">
+                  {familyMembers.length === 0 ? <p className="empty-text">No family members added yet.</p> : familyMembers.map(member => (
+                    <div key={member._id} className="medicine-item">
+                      <div className="med-details">
+                        <h4>{member.name}</h4>
+                        <p>{member.relation}</p>
+                      </div>
+                      <button onClick={() => handleRemoveFamilyMember(member._id)} className="btn-danger">Remove</button>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </div>
+          )}
+
+          {activeTab === 'med-details' && (
+            <div className="tab-view">
+              <section className="card">
+                <h3>💊 Detailed Medicine Information</h3>
+                <p style={{ marginBottom: '20px', color: 'var(--text-muted)' }}>Get usage instructions, class, and side effects for any medicine.</p>
+                
+                <form onSubmit={handleGetMedDetails} className="add-med-form" style={{ gridTemplateColumns: '1fr auto' }}>
+                  <input 
+                    type="text" 
+                    placeholder="Enter medicine name (e.g. Napa, Seclo, Metformin)" 
+                    value={medSearchQuery} 
+                    onChange={e => setMedSearchQuery(e.target.value)} 
+                    required 
+                  />
+                  <button type="submit" className="btn-primary" disabled={medInfoLoading}>
+                    {medInfoLoading ? 'Searching...' : '🔍 Get Details'}
+                  </button>
+                </form>
+              </section>
+
+              {medInfoError && (
+                <section className="card">
+                  <p className="danger-text" style={{ fontSize: '18px', fontWeight: 'bold', textAlign: 'center' }}>
+                    ⚠️ {medInfoError}
+                  </p>
+                </section>
+              )}
+
+              {medInfoResult && (
+                <section className="card">
+                  <h3 style={{ borderBottom: '2px solid var(--primary)', display: 'inline-block', paddingBottom: '4px' }}>
+                    Results for: {medInfoResult.name}
+                  </h3>
+                  <div className="med-details-view" style={{ marginTop: '20px' }}>
+                    <p style={{ marginBottom: '12px' }}><strong>🏷️ Class:</strong> {medInfoResult.class}</p>
+                    <p style={{ marginBottom: '12px' }}><strong>📝 Usage:</strong> {medInfoResult.usage}</p>
+                    <p style={{ marginBottom: '12px' }}>
+                      <strong>🍽️ Meal Instructions:</strong> 
+                      <span className={`badge ${medInfoResult.mealInstructions === 'Before Meal' ? 'warning' : 'safe'}`} style={{ marginLeft: '8px' }}>
+                        {medInfoResult.mealInstructions}
+                      </span>
+                    </p>
+                    <p style={{ marginBottom: '12px' }}><strong>⚠️ Side Effects:</strong> {medInfoResult.sideEffects}</p>
+                  </div>
+                </section>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'alternates' && (
+            <div className="tab-view">
+              <section className="card">
+                <h3>🔄 Find Alternate Medicines</h3>
+                <p style={{ marginBottom: '20px', color: 'var(--text-muted)' }}>Search for a medicine to find other brands with the same generic composition.</p>
+                
+                <form onSubmit={handleGetAlternates} className="add-med-form" style={{ gridTemplateColumns: '1fr auto' }}>
+                  <input 
+                    type="text" 
+                    placeholder="Enter medicine name (e.g. Napa, Seclo, Sergel)" 
+                    value={medSearchQuery} 
+                    onChange={e => setMedSearchQuery(e.target.value)} 
+                    required 
+                  />
+                  <button type="submit" className="btn-primary" disabled={medInfoLoading}>
+                    {medInfoLoading ? 'Searching...' : '🔍 Find Alternates'}
+                  </button>
+                </form>
+              </section>
+
+              {medInfoError && (
+                <section className="card">
+                  <p className="danger-text" style={{ fontSize: '18px', fontWeight: 'bold', textAlign: 'center' }}>
+                    ⚠️ {medInfoError}
+                  </p>
+                </section>
+              )}
+
+              {medInfoResult && (
+                <section className="card">
+                  <h3 style={{ borderBottom: '2px solid var(--success)', display: 'inline-block', paddingBottom: '4px' }}>
+                    Alternates for: {medInfoResult.name}
+                  </h3>
+                  <p style={{ margin: '20px 0 16px', color: 'var(--text-muted)', fontSize: '14px' }}>The following brands have the same composition:</p>
+                  <div className="alternate-list" style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                    {medInfoResult.alternates.map(alt => (
+                      <span key={alt} className="badge safe" style={{ padding: '8px 16px', fontSize: '14px' }}>
+                        {alt}
+                      </span>
+                    ))}
+                  </div>
+                  <p style={{ marginTop: '20px', fontSize: '12px', color: 'var(--danger)', fontStyle: 'italic' }}>
+                    * Always consult a doctor before switching brands.
+                  </p>
+                </section>
+              )}
             </div>
           )}
 

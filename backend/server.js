@@ -1,7 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const { User, Family, Medicine, AlternateMed, PrescribedMed, DoseLog, Reminder, Appointment, Test, Symptom, Report, WeeklyReport } = require('./models');
+const { User, FamilyMember, Medicine, AlternateMed, PrescribedMed, DoseLog, Reminder, Appointment, Test, Symptom, Report } = require('./models');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -53,13 +53,51 @@ app.post('/api/login', async (req, res) => {
 });
 
 // ============================================================
+// FEATURE 1.5: FAMILY MEMBER MANAGEMENT
+// ============================================================
+
+// Get all family members for a user
+app.get('/api/family/:userId', async (req, res) => {
+  try {
+    const members = await FamilyMember.find({ userId: req.params.userId });
+    res.json(members);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Add a new family member
+app.post('/api/family', async (req, res) => {
+  try {
+    const { userId, name, relation } = req.body;
+    const newMember = new FamilyMember({ userId, name, relation });
+    await newMember.save();
+    res.status(201).json(newMember);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete a family member
+app.delete('/api/family/:id', async (req, res) => {
+  try {
+    await FamilyMember.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Family member removed' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
 // FEATURE 2: MEDICINE MANAGEMENT (Add & Remove)
 // ============================================================
 
 // Fetch all active medicines 
 app.get('/api/medicines/:userId', async (req, res) => {
   try {
-    const medicines = await PrescribedMed.find({ userId: req.params.userId, active: true }).populate('medicineId');
+    const medicines = await PrescribedMed.find({ userId: req.params.userId, active: true })
+      .populate('medicineId')
+      .populate('familyMemberId');
     res.json(medicines);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -69,16 +107,18 @@ app.get('/api/medicines/:userId', async (req, res) => {
 // Add new medicine + create reminders 
 app.post('/api/medicines', async (req, res) => {
   try {
-    const { name, dose, frequency, scheduledTimes, total_quantity, refillAlertAt, userId } = req.body;
+    const { name, dose, frequency, scheduledTimes, total_quantity, refillAlertAt, userId, familyMemberId } = req.body;
 
-
-    const newMedicine = new Medicine({ name, description: 'User added' });
-    const savedMed = await newMedicine.save();
-
+    let med = await Medicine.findOne({ name });
+    if (!med) {
+        med = new Medicine({ name, description: 'User added' });
+        await med.save();
+    }
 
     const newPrescription = new PrescribedMed({
       userId,
-      medicineId: savedMed._id,
+      familyMemberId: familyMemberId || null,
+      medicineId: med._id,
       dose,
       frequency,
       totalQuantity: parseInt(total_quantity),
@@ -87,7 +127,7 @@ app.post('/api/medicines', async (req, res) => {
     });
     const savedPrescription = await newPrescription.save();
 
-    // Step 3: Create one Reminder per scheduled time (e.g., 2 reminders for Twice a day)
+    // Create one Reminder per scheduled time 
     if (scheduledTimes && Array.isArray(scheduledTimes)) {
       const reminderPromises = scheduledTimes.map(time => {
         if (!time) return Promise.resolve();
@@ -106,7 +146,7 @@ app.post('/api/medicines', async (req, res) => {
   }
 });
 
-// DELETE /api/medicines/:id — Remove a medicine prescription
+// Remove a medicine 
 app.delete('/api/medicines/:id', async (req, res) => {
   try {
     await PrescribedMed.findByIdAndDelete(req.params.id);
@@ -123,16 +163,14 @@ app.delete('/api/medicines/:id', async (req, res) => {
 // Today's reminder schedule 
 app.get('/api/schedule/:userId', async (req, res) => {
   try {
-    // Get all active prescriptions for this user
-    const prescriptions = await PrescribedMed.find({ userId: req.params.userId, active: true }).populate('medicineId');
-    const prescriptionIds = prescriptions.map(p => p._id);
-
-    // Get all reminders linked to those prescriptions
-    const reminders = await Reminder.find({ prescriptionId: { $in: prescriptionIds }, isActive: true }).populate({
-      path: 'prescriptionId',
-      populate: { path: 'medicineId' }
-    });
-    res.json(reminders);
+    const reminders = await Reminder.find()
+      .populate({
+        path: 'prescriptionId',
+        match: { userId: req.params.userId, active: true },
+        populate: [{ path: 'medicineId' }, { path: 'familyMemberId' }]
+      });
+    const filteredReminders = reminders.filter(r => r.prescriptionId !== null);
+    res.json(filteredReminders);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -183,7 +221,9 @@ app.post('/api/doselogs', async (req, res) => {
 
 app.get('/api/refill-alerts/:userId', async (req, res) => {
   try {
-    const medicines = await PrescribedMed.find({ userId: req.params.userId, active: true }).populate('medicineId');
+    const medicines = await PrescribedMed.find({ userId: req.params.userId, active: true })
+      .populate('medicineId')
+      .populate('familyMemberId');
 
     // return medicines
     const lowStockMeds = medicines.filter(med => med.remainingQuantity <= med.refillAlertAt);
@@ -346,20 +386,19 @@ app.post('/api/weekly-report/generate', async (req, res) => {
 
       const successRate = (doseTaken / totalDose) * 100;
 
-      const lastReport = await WeeklyReport.findOne({ prescriptionId: rx._id })
-        .sort({ reportDate: -1 });
+      // Fetch last week's rate from the most recent Report for this prescription
+      const lastReport = await Report.findOne({ prescriptionId: rx._id })
+        .sort({ reportDate: -1 }); // Get the latest one
 
       const lastWeeksRate = lastReport ? lastReport.successRate : null;
 
-      // new WeeklyReport
-      const newReport = new WeeklyReport({
+      // Create new Report
+      const newReport = new Report({
         userId,
         prescriptionId: rx._id,
         totalDose,
         doseTaken,
         doseMissed,
-        medicineStart: rx.startDate,
-        medicineEnd: rx.endDate,
         successRate,
         lastWeeksRate
       });
@@ -371,6 +410,171 @@ app.post('/api/weekly-report/generate', async (req, res) => {
     res.status(201).json({ message: 'Weekly reports generated successfully', reports: generatedReports });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// FEATURE 7: APPOINTMENTS & LAB TESTS
+// ============================================================
+
+// Fetch all appointments for a user
+app.get('/api/appointments/:userId', async (req, res) => {
+  try {
+    const appointments = await Appointment.find({ userId: req.params.userId })
+      .populate('familyMemberId')
+      .sort({ date: 1, time: 1 });
+    res.json(appointments);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Add a new appointment
+app.post('/api/appointments', async (req, res) => {
+  try {
+    const { userId, familyMemberId, date, time, doctorName, hospitalName, type, note } = req.body;
+    const newAppointment = new Appointment({ 
+      userId, 
+      familyMemberId: familyMemberId || null, 
+      date, 
+      time, 
+      doctorName, 
+      hospitalName, 
+      type, 
+      note 
+    });
+    await newAppointment.save();
+    res.status(201).json(newAppointment);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Fetch all lab tests for a user
+app.get('/api/tests/:userId', async (req, res) => {
+  try {
+    const tests = await Test.find({ userId: req.params.userId })
+      .populate('familyMemberId')
+      .sort({ date: -1 });
+    res.json(tests);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Add a new lab test
+app.post('/api/tests', async (req, res) => {
+  try {
+    const { userId, familyMemberId, testName, hospitalName, date, resultStatus, resultDetails, appointmentId } = req.body;
+
+    // Fix: If appointmentId is an empty string, don't pass it to the model to avoid cast errors
+    const testData = { userId, familyMemberId: familyMemberId || null, testName, hospitalName, date, resultStatus, resultDetails };
+    if (appointmentId && appointmentId.trim() !== '') {
+      testData.appointmentId = appointmentId;
+    }
+
+    const newTest = new Test(testData);
+    await newTest.save();
+    res.status(201).json(newTest);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// SHARED MEDICINE DATABASE (MOCK DATA)
+// ============================================================
+const MEDICINE_DATABASE = [
+  {
+    name: 'Napa',
+    class: 'Analgesic & Antipyretic',
+    usage: 'Fever, Headache, Body pain',
+    mealInstructions: 'After Meal',
+    sideEffects: 'Nausea, allergic reactions (rare)',
+    alternates: ['Ace', 'Fast', 'Renova']
+  },
+  {
+    name: 'Ace',
+    class: 'Analgesic & Antipyretic',
+    usage: 'Fever, Pain relief',
+    mealInstructions: 'After Meal',
+    sideEffects: 'Nausea, skin rash',
+    alternates: ['Napa', 'Fast', 'Renova']
+  },
+  {
+    name: 'Seclo',
+    class: 'Proton Pump Inhibitor (Antacid)',
+    usage: 'Gastritis, Heartburn, Acid reflux',
+    mealInstructions: 'Before Meal',
+    sideEffects: 'Headache, diarrhea, abdominal pain',
+    alternates: ['Sergel', 'Losectil', 'Pantix']
+  },
+  {
+    name: 'Sergel',
+    class: 'Proton Pump Inhibitor (Antacid)',
+    usage: 'Acid reflux, Gastric ulcers',
+    mealInstructions: 'Before Meal',
+    sideEffects: 'Dizziness, dry mouth',
+    alternates: ['Seclo', 'Losectil', 'Pantix']
+  },
+  {
+    name: 'Azithrocin',
+    class: 'Antibiotic (Macrolide)',
+    usage: 'Bacterial infections, Respiratory infections',
+    mealInstructions: 'Before Meal',
+    sideEffects: 'Diarrhea, vomiting, stomach pain',
+    alternates: ['Zimax', 'Tridosil']
+  },
+  {
+    name: 'Amodis',
+    class: 'Antiprotozoal / Antibiotic',
+    usage: 'Diarrhea, Amoebiasis',
+    mealInstructions: 'After Meal',
+    sideEffects: 'Metallic taste, headache',
+    alternates: ['Metryl', 'Filmet']
+  },
+  {
+    name: 'Metformin',
+    class: 'Antidiabetic',
+    usage: 'Type 2 Diabetes management',
+    mealInstructions: 'After Meal',
+    sideEffects: 'Nausea, stomach upset',
+    alternates: ['Comet', 'Glucomin']
+  }
+];
+
+// ============================================================
+// FEATURE 8: MEDICINE DETAILS
+// ============================================================
+
+app.get('/api/medicine-details', (req, res) => {
+  const { name } = req.query;
+  if (!name) return res.status(400).json({ error: 'Medicine name is required' });
+
+  const med = MEDICINE_DATABASE.find(m => m.name.toLowerCase() === name.toLowerCase());
+
+  if (med) {
+    const { alternates, ...details } = med; // Exclude alternates for this route
+    res.json(details);
+  } else {
+    res.status(404).json({ error: 'No Info for The Med Exists in Our Database.' });
+  }
+});
+
+// ============================================================
+// FEATURE 9: ALTERNATE MEDICINES
+// ============================================================
+
+app.get('/api/medicine-alternates', (req, res) => {
+  const { name } = req.query;
+  if (!name) return res.status(400).json({ error: 'Medicine name is required' });
+
+  const med = MEDICINE_DATABASE.find(m => m.name.toLowerCase() === name.toLowerCase());
+
+  if (med) {
+    res.json({ name: med.name, alternates: med.alternates });
+  } else {
+    res.status(404).json({ error: 'No Info for The Med Exists in Our Database.' });
   }
 });
 

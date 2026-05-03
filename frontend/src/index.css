@@ -287,15 +287,36 @@ button {
 }
 
 .add-med-form input,
-.add-med-form select {
+.add-med-form select,
+.add-med-form textarea {
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
   outline: none;
+  font-size: 14px;
 }
 
 .add-med-form .btn-primary {
   grid-column: span 3;
+}
+
+.add-med-form.grid-2-col-form {
+  grid-template-columns: 1fr 1fr;
+}
+
+.add-med-form.grid-2-col-form .btn-primary,
+.add-med-form.grid-2-col-form textarea {
+  grid-column: span 2;
+}
+
+.list-section-header {
+  margin-top: 24px;
+  margin-bottom: 12px;
+  color: var(--text);
+  font-size: 18px;
+  border-bottom: 2px solid var(--primary);
+  display: inline-block;
+  padding-bottom: 4px;
 }
 
 /* Lists */
