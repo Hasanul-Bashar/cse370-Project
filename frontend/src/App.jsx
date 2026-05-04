@@ -13,7 +13,7 @@ function App() {
   const [lowStockMeds, setLowStockMeds] = useState([]);
 
   // Symptom Checker State
-  const SYMPTOM_LIST = ['Fever', 'Fatigue', 'Headache', 'Dizziness', 'Blurred vision', 'Nausea', 'Diarrhea', 'Joint pain', 'Muscle aches'];
+  const SYMPTOM_LIST = ["Fever", "Headache", "Joint pain", "Muscle aches", "Fatigue", "Blurred vision", "Dizziness", "Nausea", "Diarrhea", "Runny nose", "Sneezing", "Sore throat", "Cough", "Mild fever", "Vomiting", "Abdominal pain", "High fever", "Chest pain", "Shortness of breath", "Itching", "Dry skin", "Rash", "Redness", "Red eyes", "Eye discharge", "Watering eyes", "Difficulty swallowing", "Swollen tonsils", "Heartburn", "Chest discomfort", "Bloating", "Body pain", "Pain swallowing"];
   const [selectedSymptoms, setSelectedSymptoms] = useState([]);
   const [symptomResult, setSymptomResult] = useState(null);
   const [symptomLoading, setSymptomLoading] = useState(false);
