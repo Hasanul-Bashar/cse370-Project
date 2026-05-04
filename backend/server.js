@@ -6,23 +6,22 @@ const { User, FamilyMember, Medicine, AlternateMed, PrescribedMed, DoseLog, Remi
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ============================================================
+
 // MIDDLEWARE
-// ============================================================
+
 app.use(cors());
 app.use(express.json());
 
-// ============================================================
+
 // DATABASE CONNECTION
-// ============================================================
+
 const MONGO_URI = 'mongodb://127.0.0.1:27017/health_management_mern';
 mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log('MongoDB successfully connected'))
   .catch(err => console.error('MongoDB connection error:', err));
 
-// ============================================================
 // FEATURE 1: AUTHENTICATION (Signup & Login)
-// ============================================================
+
 
 //Create new user 
 app.post('/api/signup', async (req, res) => {
@@ -52,9 +51,9 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// ============================================================
+
 // FEATURE 1.5: FAMILY MEMBER MANAGEMENT
-// ============================================================
+
 
 // Get all family members for a user
 app.get('/api/family/:userId', async (req, res) => {
@@ -88,9 +87,9 @@ app.delete('/api/family/:id', async (req, res) => {
   }
 });
 
-// ============================================================
+
 // FEATURE 2: MEDICINE MANAGEMENT (Add & Remove)
-// ============================================================
+
 
 // Fetch all active medicines 
 app.get('/api/medicines/:userId', async (req, res) => {
@@ -111,8 +110,8 @@ app.post('/api/medicines', async (req, res) => {
 
     let med = await Medicine.findOne({ name });
     if (!med) {
-        med = new Medicine({ name, description: 'User added' });
-        await med.save();
+      med = new Medicine({ name, description: 'User added' });
+      await med.save();
     }
 
     const newPrescription = new PrescribedMed({
@@ -156,11 +155,9 @@ app.delete('/api/medicines/:id', async (req, res) => {
   }
 });
 
-// ============================================================
-// FEATURE 3: DOSE REMINDER (Schedule & Mark as Taken)
-// ============================================================
 
-// Today's reminder schedule 
+// FEATURE 3: DOSE REMINDER (Schedule & Mark as Taken)
+
 app.get('/api/schedule/:userId', async (req, res) => {
   try {
     const reminders = await Reminder.find()
@@ -215,9 +212,7 @@ app.post('/api/doselogs', async (req, res) => {
 
 
 
-// ============================================================
 // FEATURE 4: REFILL ALERTS
-// ============================================================
 
 app.get('/api/refill-alerts/:userId', async (req, res) => {
   try {
@@ -225,7 +220,6 @@ app.get('/api/refill-alerts/:userId', async (req, res) => {
       .populate('medicineId')
       .populate('familyMemberId');
 
-    // return medicines
     const lowStockMeds = medicines.filter(med => med.remainingQuantity <= med.refillAlertAt);
 
     res.json(lowStockMeds);
@@ -235,12 +229,8 @@ app.get('/api/refill-alerts/:userId', async (req, res) => {
 });
 
 
-// ============================================================
 // FEATURE 5: SYMPTOM CHECKER
-// ============================================================
 
-// Rule-based diagnosis engine
-// SYMPTOM CHECKER
 const diagnosisRules = [
   {
     name: 'Dengue Fever',
@@ -297,10 +287,81 @@ const diagnosisRules = [
     minMatch: 2,
     severity: 'Mild',
     feedback: 'Symptoms are pointing to a general viral infection. Patient should rest, drink plenty of fluids, and monitor temperature. See a doctor if the fever stays beyond 3 days.'
-  }
+  },
+  {
+    name: 'Common Cold',
+    symptoms: ['Runny nose', 'Sneezing', 'Sore throat', 'Cough', 'Mild fever'],
+    minMatch: 3,
+    severity: 'Mild',
+    feedback: 'Symptoms are pointing to the Common Cold. Patient should rest, stay hydrated, and take supportive care. Consult a doctor if symptoms persist beyond a week.'
+  },
+  {
+    name: 'Food Poisoning',
+    symptoms: ['Nausea', 'Vomiting', 'Diarrhea', 'Abdominal pain', 'Fever'],
+    minMatch: 3,
+    severity: 'Moderate',
+    feedback: 'Symptoms are pointing to Food Poisoning. Patient should stay hydrated and avoid solid food initially. Seek medical help if symptoms are severe or prolonged.'
+  },
+  {
+    name: 'Pneumonia',
+    symptoms: ['High fever', 'Cough', 'Chest pain', 'Shortness of breath', 'Fatigue'],
+    minMatch: 3,
+    severity: 'Severe',
+    feedback: 'Symptoms are pointing to Pneumonia. Patient should seek medical attention immediately for proper treatment.'
+  },
+  {
+    name: 'Eczema',
+    symptoms: ['Itching', 'Dry skin', 'Rash', 'Redness'],
+    minMatch: 3,
+    severity: 'Moderate',
+    feedback: 'Symptoms are pointing to Eczema. Patient should keep skin moisturized and avoid irritants. Consult a doctor if severe.'
+  },
+  {
+    name: 'Conjunctivitis (Eye Infection)',
+    symptoms: ['Red eyes', 'Eye discharge', 'Itching', 'Watering eyes'],
+    minMatch: 3,
+    severity: 'Moderate',
+    feedback: 'Symptoms are pointing to Conjunctivitis. Patient should maintain eye hygiene and consult a doctor for eye drops.'
+  },
+  {
+    name: 'Tonsillitis',
+    symptoms: ['Sore throat', 'Fever', 'Difficulty swallowing', 'Swollen tonsils'],
+    minMatch: 3,
+    severity: 'Moderate',
+    feedback: 'Symptoms are pointing to Tonsillitis. Patient should take warm fluids and consult a doctor if pain is severe.'
+  },
+  {
+    name: 'Acidity',
+    symptoms: ['Heartburn', 'Chest discomfort', 'Bloating'],
+    minMatch: 2,
+    severity: 'Mild',
+    feedback: 'Symptoms suggest acidity. Patient should avoid spicy foods and eat smaller meals.'
+  },
+  {
+    name: 'Allergy (Mild)',
+    symptoms: ['Sneezing', 'Runny nose', 'Itching'],
+    minMatch: 2,
+    severity: 'Mild',
+    feedback: 'Symptoms indicate a mild allergy. Patient should avoid allergens and may consider antihistamines.'
+  },
+  {
+    name: 'Muscle Pain',
+    symptoms: ['Muscle aches', 'Fatigue', 'Body pain'],
+    minMatch: 2,
+    severity: 'Mild',
+    feedback: 'Symptoms suggest muscle pain. Patient should rest and avoid heavy activity.'
+  },
+  {
+    name: 'Sore Throat',
+    symptoms: ['Sore throat', 'Pain swallowing', 'Mild fever'],
+    minMatch: 2,
+    severity: 'Mild',
+    feedback: 'Symptoms indicate a sore throat. Patient should drink warm fluids and rest. Seek medical help if symptoms worsen.'
+  },
+
 ];
 
-// Analyze symp, return conditions
+
 app.post('/api/symptoms/check', async (req, res) => {
   try {
     const { userId, selectedSymptoms } = req.body;
@@ -317,12 +378,11 @@ app.post('/api/symptoms/check', async (req, res) => {
       .filter(rule => rule.matchCount >= rule.minMatch)
       .sort((a, b) => b.matchCount - a.matchCount);
 
-    // severity
+
     let overallSeverity = 'Mild';
     if (results.some(r => r.severity === 'Severe')) overallSeverity = 'Severe';
     else if (results.some(r => r.severity === 'Moderate')) overallSeverity = 'Moderate';
 
-    // Save symp
     if (userId) {
       const newSymptom = new Symptom({
         userId,
@@ -347,9 +407,7 @@ app.post('/api/symptoms/check', async (req, res) => {
   }
 });
 
-// ============================================================
 // FEATURE 6: WEEKLY REPORT
-// ============================================================
 
 app.post('/api/weekly-report/generate', async (req, res) => {
   try {
@@ -357,42 +415,30 @@ app.post('/api/weekly-report/generate', async (req, res) => {
     if (!userId) return res.status(400).json({ error: 'userId is required' });
 
     const prescriptions = await PrescribedMed.find({ userId, active: true });
-
-    // date range (last 7 days)
     const endDate = new Date();
     const startDate = new Date();
     startDate.setDate(endDate.getDate() - 7);
-
     const generatedReports = [];
 
     for (const rx of prescriptions) {
       const reminders = await Reminder.find({ prescriptionId: rx._id, isActive: true });
       const dailyDoses = reminders.length;
-
       const totalDose = dailyDoses * 7;
-
       if (totalDose === 0) continue;
 
-      // logs for last 7 days
       const doseLogs = await DoseLog.find({
         prescriptionId: rx._id,
         dateTaken: { $gte: startDate, $lte: endDate }
       });
 
-      // Calculate
+
       const doseTaken = doseLogs.filter(log => ['Taken', 'Early', 'Late'].includes(log.status)).length;
-
       const doseMissed = Math.max(0, totalDose - doseTaken);
-
       const successRate = (doseTaken / totalDose) * 100;
-
-      // Fetch last week's rate from the most recent Report for this prescription
       const lastReport = await Report.findOne({ prescriptionId: rx._id })
-        .sort({ reportDate: -1 }); // Get the latest one
+        .sort({ reportDate: -1 });
 
       const lastWeeksRate = lastReport ? lastReport.successRate : null;
-
-      // Create new Report
       const newReport = new Report({
         userId,
         prescriptionId: rx._id,
@@ -413,11 +459,8 @@ app.post('/api/weekly-report/generate', async (req, res) => {
   }
 });
 
-// ============================================================
 // FEATURE 7: APPOINTMENTS & LAB TESTS
-// ============================================================
 
-// Fetch all appointments for a user
 app.get('/api/appointments/:userId', async (req, res) => {
   try {
     const appointments = await Appointment.find({ userId: req.params.userId })
@@ -429,19 +472,18 @@ app.get('/api/appointments/:userId', async (req, res) => {
   }
 });
 
-// Add a new appointment
 app.post('/api/appointments', async (req, res) => {
   try {
     const { userId, familyMemberId, date, time, doctorName, hospitalName, type, note } = req.body;
-    const newAppointment = new Appointment({ 
-      userId, 
-      familyMemberId: familyMemberId || null, 
-      date, 
-      time, 
-      doctorName, 
-      hospitalName, 
-      type, 
-      note 
+    const newAppointment = new Appointment({
+      userId,
+      familyMemberId: familyMemberId || null,
+      date,
+      time,
+      doctorName,
+      hospitalName,
+      type,
+      note
     });
     await newAppointment.save();
     res.status(201).json(newAppointment);
@@ -450,7 +492,7 @@ app.post('/api/appointments', async (req, res) => {
   }
 });
 
-// Fetch all lab tests for a user
+
 app.get('/api/tests/:userId', async (req, res) => {
   try {
     const tests = await Test.find({ userId: req.params.userId })
@@ -462,12 +504,9 @@ app.get('/api/tests/:userId', async (req, res) => {
   }
 });
 
-// Add a new lab test
 app.post('/api/tests', async (req, res) => {
   try {
     const { userId, familyMemberId, testName, hospitalName, date, resultStatus, resultDetails, appointmentId } = req.body;
-
-    // Fix: If appointmentId is an empty string, don't pass it to the model to avoid cast errors
     const testData = { userId, familyMemberId: familyMemberId || null, testName, hospitalName, date, resultStatus, resultDetails };
     if (appointmentId && appointmentId.trim() !== '') {
       testData.appointmentId = appointmentId;
@@ -481,9 +520,7 @@ app.post('/api/tests', async (req, res) => {
   }
 });
 
-// ============================================================
-// SHARED MEDICINE DATABASE (MOCK DATA)
-// ============================================================
+// MEDICINE DATABASE (MOCK DATA)
 const MEDICINE_DATABASE = [
   {
     name: 'Napa',
@@ -523,7 +560,7 @@ const MEDICINE_DATABASE = [
     usage: 'Bacterial infections, Respiratory infections',
     mealInstructions: 'Before Meal',
     sideEffects: 'Diarrhea, vomiting, stomach pain',
-    alternates: ['Zimax', 'Tridosil']
+    alternates: ['Zimax', 'Tridosil', 'Azin']
   },
   {
     name: 'Amodis',
@@ -540,30 +577,164 @@ const MEDICINE_DATABASE = [
     mealInstructions: 'After Meal',
     sideEffects: 'Nausea, stomach upset',
     alternates: ['Comet', 'Glucomin']
+  },
+  {
+    name: 'Fexo',
+    class: 'Antihistamine',
+    usage: 'Allergy, Sneezing, Runny nose',
+    mealInstructions: 'Before Meal',
+    sideEffects: 'Headache, dizziness',
+    alternates: ['Alatrol', 'Deslor', 'Fenadin']
+  },
+  {
+    name: 'Flagyl',
+    class: 'Antibiotic / Antiprotozoal',
+    usage: 'Diarrhea, Amoebiasis, Bacterial infections',
+    mealInstructions: 'After Meal',
+    sideEffects: 'Nausea, metallic taste, dry mouth',
+    alternates: ['Amodis', 'Metryl', 'Filmet']
+  },
+  {
+    name: 'Ciprocin',
+    class: 'Antibiotic (Fluoroquinolone)',
+    usage: 'Urinary tract infection, Bacterial infections',
+    mealInstructions: 'After Meal',
+    sideEffects: 'Nausea, dizziness',
+    alternates: ['Ciprox', 'Neofloxin']
+  },
+  {
+    name: 'Alatrol',
+    class: 'Antihistamine',
+    usage: 'Allergy, Itching, Urticaria',
+    mealInstructions: 'After Meal',
+    sideEffects: 'Drowsiness, dry mouth',
+    alternates: ['Fexo', 'Deslor']
+  },
+  {
+    name: 'Losectil',
+    class: 'Proton Pump Inhibitor (Antacid)',
+    usage: 'Gastric ulcer, Heartburn',
+    mealInstructions: 'Before Meal',
+    sideEffects: 'Abdominal pain, nausea',
+    alternates: ['Seclo', 'Sergel']
+  },
+  {
+    name: 'Cef-3',
+    class: 'Antibiotic (Cephalosporin)',
+    usage: 'Bacterial infections, Typhoid',
+    mealInstructions: 'After Meal',
+    sideEffects: 'Stomach upset, rash',
+    alternates: ['Fixacef', 'Cefixime']
+  },
+  {
+    name: 'Algin',
+    class: 'Antacid / Anti-reflux (Alginic acid preparation)',
+    usage: 'Acid reflux, Heartburn, Indigestion',
+    mealInstructions: 'After Meal',
+    sideEffects: 'Bloating, mild nausea (rare)',
+    alternates: ['Gaviscon', 'Algicid']
+  },
+  {
+    name: 'Monas',
+    class: 'Leukotriene Receptor Antagonist',
+    usage: 'Allergic rhinitis, Asthma prevention',
+    mealInstructions: 'After Meal',
+    sideEffects: 'Headache, abdominal pain, fatigue',
+    alternates: ['Montair', 'Montene']
+  },
+  {
+    name: 'Monaire',
+    class: 'Leukotriene Receptor Antagonist',
+    usage: 'Allergic rhinitis, Asthma prevention',
+    mealInstructions: 'After Meal',
+    sideEffects: 'Headache, dizziness, abdominal pain',
+    alternates: ['Monas', 'Montair', 'Montene']
+  },
+  {
+    name: 'Fecilax',
+    class: 'Laxative (Bulk-forming / Stool softener)',
+    usage: 'Constipation, Irregular bowel movement',
+    mealInstructions: 'After Meal / With plenty of water',
+    sideEffects: 'Bloating, gas, abdominal discomfort',
+    alternates: ['Dulcolax', 'Laxol']
+  },
+  {
+    name: 'Omidon',
+    class: 'Antiemetic / Prokinetic (Domperidone)',
+    usage: 'Nausea, Vomiting, Indigestion, Gastric discomfort',
+    mealInstructions: 'Before Meal',
+    sideEffects: 'Dry mouth, abdominal cramps, headache',
+    alternates: ['Domstal', 'Motigut', 'Domperon']
+  },
+  {
+    name: 'Tamen Turbo',
+    class: 'Analgesic (Opioid + Paracetamol Combination)',
+    usage: 'Moderate to severe pain (e.g., injury, post-operative pain)',
+    mealInstructions: 'After Meal',
+    sideEffects: 'Drowsiness, nausea, dizziness, constipation, dependence risk',
+    alternates: ['Tamen', 'Tramadol', 'Ultracet']
+  },
+  {
+    name: 'Rivortil',
+    class: 'Benzodiazepine (Clonazepam)',
+    usage: 'Anxiety, Panic disorder, Seizures, Sleep problems (short-term)',
+    mealInstructions: 'After Meal / Before Sleep',
+    sideEffects: 'Drowsiness, dizziness, dependence risk, memory issues',
+    alternates: ['Clonazepam', 'Clonotril']
+  },
+  {
+    name: 'Savlon',
+    class: 'Antiseptic (Chlorhexidine + Cetrimide)',
+    usage: 'Wound cleaning, Cuts, Burns, Skin disinfection',
+    mealInstructions: 'Not applicable (external use)',
+    sideEffects: 'Skin irritation (rare), dryness, allergic reaction (rare)',
+    alternates: ['Dettol', 'Betadine', 'Hexisol']
+  },
+  {
+    name: 'Pevison Cream',
+    class: 'Topical Antifungal + Corticosteroid',
+    usage: 'Fungal skin infections, Itching, Rash, Dermatitis',
+    mealInstructions: 'Not applicable (topical use)',
+    sideEffects: 'Skin thinning (with long use), burning sensation, irritation',
+    alternates: ['Betnovate-N', 'Fungidal-B', 'Quadriderm']
+  },
+  {
+    name: 'Betameson Cream',
+    class: 'Topical Corticosteroid (Betamethasone)',
+    usage: 'Skin inflammation, eczema, allergic skin reactions, itching',
+    mealInstructions: 'Not applicable (topical use)',
+    sideEffects: 'Skin thinning, burning, irritation, discoloration (with prolonged use)',
+    alternates: ['Betnovate', 'Celestoderm', 'Bexitrol']
+  },
+  {
+    name: 'Fungidal',
+    class: 'Topical Antifungal',
+    usage: 'Fungal skin infections, ringworm, athletes foot, itching',
+    mealInstructions: 'Not applicable (topical use)',
+    sideEffects: 'Mild burning, redness, skin irritation',
+    alternates: ['Canesten', 'Clotrimazole cream', 'Lamisil']
   }
+
 ];
 
-// ============================================================
+
 // FEATURE 8: MEDICINE DETAILS
-// ============================================================
 
 app.get('/api/medicine-details', (req, res) => {
   const { name } = req.query;
   if (!name) return res.status(400).json({ error: 'Medicine name is required' });
-
   const med = MEDICINE_DATABASE.find(m => m.name.toLowerCase() === name.toLowerCase());
 
   if (med) {
-    const { alternates, ...details } = med; // Exclude alternates for this route
+    const { alternates, ...details } = med;
     res.json(details);
   } else {
     res.status(404).json({ error: 'No Info for The Med Exists in Our Database.' });
   }
 });
 
-// ============================================================
+
 // FEATURE 9: ALTERNATE MEDICINES
-// ============================================================
 
 app.get('/api/medicine-alternates', (req, res) => {
   const { name } = req.query;
@@ -578,9 +749,7 @@ app.get('/api/medicine-alternates', (req, res) => {
   }
 });
 
-// ============================================================
-// START SERVER
-// ============================================================
+
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
