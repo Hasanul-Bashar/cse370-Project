@@ -102,8 +102,13 @@ const symptomSchema = new mongoose.Schema({
 // 11. REPORT SCHEMA 
 const reportSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  prescriptionId: { type: mongoose.Schema.Types.ObjectId, ref: 'PrescribedMed' },
   reportDate: { type: Date, default: Date.now },
-  adherenceRate: { type: Number, required: true },
+  totalDose: { type: Number },
+  doseTaken: { type: Number },
+  doseMissed: { type: Number },
+  successRate: { type: Number, required: true },
+  lastWeeksRate: { type: Number },
   summary: String
 }, { timestamps: true });
 
