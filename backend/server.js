@@ -540,7 +540,7 @@ const MEDICINE_DATABASE = [
     mealInstructions: 'After Meal',
     sideEffects: 'Nausea, stomach upset',
     alternates: ['Comet', 'Glucomin']
-  }
+  },
   {
     name: 'Fexo',
     class: 'Antihistamine',
@@ -644,6 +644,14 @@ const MEDICINE_DATABASE = [
     mealInstructions: 'After Meal / Before Sleep',
     sideEffects: 'Drowsiness, dizziness, dependence risk, memory issues',
     alternates: ['Clonazepam', 'Clonotril']
+  },
+  {
+    name: 'Savlon',
+    class: 'Antiseptic (Chlorhexidine + Cetrimide)',
+    usage: 'Wound cleaning, Cuts, Burns, Skin disinfection',
+    mealInstructions: 'Not applicable (external use)',
+    sideEffects: 'Skin irritation (rare), dryness, allergic reaction (rare)',
+    alternates: ['Dettol', 'Betadine', 'Hexisol']
   },
   {
     name: 'Pevison Cream',
