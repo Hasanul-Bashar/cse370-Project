@@ -12,27 +12,27 @@ function App() {
   const [takenStatuses, setTakenStatuses] = useState({});
   const [lowStockMeds, setLowStockMeds] = useState([]);
 
-  // Symptom Checker State
+  // Symptom Checker 
   const SYMPTOM_LIST = ["Fever", "Headache", "Joint pain", "Muscle aches", "Fatigue", "Blurred vision", "Dizziness", "Nausea", "Diarrhea", "Runny nose", "Sneezing", "Sore throat", "Cough", "Mild fever", "Vomiting", "Abdominal pain", "High fever", "Chest pain", "Shortness of breath", "Itching", "Dry skin", "Rash", "Redness", "Red eyes", "Eye discharge", "Watering eyes", "Difficulty swallowing", "Swollen tonsils", "Heartburn", "Chest discomfort", "Bloating", "Body pain", "Pain swallowing"];
   const [selectedSymptoms, setSelectedSymptoms] = useState([]);
   const [symptomResult, setSymptomResult] = useState(null);
   const [symptomLoading, setSymptomLoading] = useState(false);
 
-  // Weekly Report State
+  // Weekly Report 
   const [weeklyReports, setWeeklyReports] = useState([]);
   const [reportLoading, setReportLoading] = useState(false);
 
-  // Appointments & Lab Tests State
+  // Appointments & Lab Tests 
   const [appointments, setAppointments] = useState([]);
   const [tests, setTests] = useState([]);
   const [newApptForm, setNewApptForm] = useState({ doctorName: '', hospitalName: '', date: '', time: '', type: '', note: '', familyMemberId: '' });
   const [newTestForm, setNewTestForm] = useState({ testName: '', hospitalName: '', date: '', resultStatus: 'Pending', resultDetails: '', appointmentId: '', familyMemberId: '' });
 
-  // Family State
+  // Family check
   const [familyMembers, setFamilyMembers] = useState([]);
   const [newFamilyForm, setNewFamilyForm] = useState({ name: '', relation: '' });
 
-  // Med Info State
+  // Med Info 
   const [medSearchQuery, setMedSearchQuery] = useState('');
   const [medInfoResult, setMedInfoResult] = useState(null);
   const [medInfoLoading, setMedInfoLoading] = useState(false);
@@ -92,7 +92,7 @@ function App() {
       .then(data => setSchedule(data))
       .catch(err => console.error(err));
 
-    // Fetch Refill Alerts from backend
+    // Fetch Refill Alerts 
     fetch(`http://localhost:5000/api/refill-alerts/${user.id}`)
       .then(res => res.json())
       .then(data => setLowStockMeds(data))
@@ -114,6 +114,19 @@ function App() {
     fetch(`http://localhost:5000/api/family/${user.id}`)
       .then(res => res.json())
       .then(data => setFamilyMembers(data))
+      .catch(err => console.error(err));
+
+    // Fetch Today's Dose Logs to save taken status
+    fetch(`http://localhost:5000/api/doselogs/today/${user.id}`)
+      .then(res => res.json())
+      .then(data => {
+        const statuses = {};
+        data.forEach(log => {
+          const key = `${log.prescriptionId}_${log.scheduledTime}`;
+          statuses[key] = log.status;
+        });
+        setTakenStatuses(statuses);
+      })
       .catch(err => console.error(err));
   };
 
@@ -184,7 +197,8 @@ function App() {
       });
       const data = await response.json();
       if (response.ok) {
-        setTakenStatuses(prev => ({ ...prev, [reminderId]: data.status }));
+        const key = `${prescriptionId}_${scheduledTime}`;
+        setTakenStatuses(prev => ({ ...prev, [key]: data.status }));
         fetchData();
       }
     } catch (err) {
@@ -306,7 +320,7 @@ function App() {
     );
   };
 
-  // Submit symptoms to backend for analysis
+  // send symptoms to backend 
   const handleSymptomCheck = async () => {
     if (selectedSymptoms.length === 0) {
       alert('Please select at least one symptom.');
@@ -471,13 +485,13 @@ function App() {
                             </span>
                           </p>
                         </div>
-                        {takenStatuses[reminder._id] ? (
-                          <span className={`badge ${takenStatuses[reminder._id] === 'Late' ? 'danger' :
-                            takenStatuses[reminder._id] === 'Early' ? 'warning' :
+                        {takenStatuses[`${reminder.prescriptionId?._id}_${reminder.timeToTake}`] ? (
+                          <span className={`badge ${takenStatuses[`${reminder.prescriptionId?._id}_${reminder.timeToTake}`] === 'Late' ? 'danger' :
+                            takenStatuses[`${reminder.prescriptionId?._id}_${reminder.timeToTake}`] === 'Early' ? 'warning' :
                               'safe'
                             }`} style={{ fontSize: '14px', padding: '6px 12px' }}>
-                            {takenStatuses[reminder._id] === 'Late' ? 'Late Taken' :
-                              takenStatuses[reminder._id] === 'Early' ? 'Early Taken' :
+                            {takenStatuses[`${reminder.prescriptionId?._id}_${reminder.timeToTake}`] === 'Late' ? 'Late Taken' :
+                              takenStatuses[`${reminder.prescriptionId?._id}_${reminder.timeToTake}`] === 'Early' ? 'Early Taken' :
                                 'Taken'}
                           </span>
                         ) : (

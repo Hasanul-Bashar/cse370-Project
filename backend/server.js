@@ -20,10 +20,11 @@ mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log('MongoDB successfully connected'))
   .catch(err => console.error('MongoDB connection error:', err));
 
-// FEATURE 1: AUTHENTICATION (Signup & Login)
+
+// #### FEATURE 0: Login & Signup ####
 
 
-//Create new user 
+//new user 
 app.post('/api/signup', async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -38,7 +39,7 @@ app.post('/api/signup', async (req, res) => {
   }
 });
 
-// Verify and login user
+//Verify
 app.post('/api/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -52,10 +53,10 @@ app.post('/api/login', async (req, res) => {
 });
 
 
-// FEATURE 1.5: FAMILY MEMBER MANAGEMENT
+// ## FEATURE 1: FAMILY MEMBER MANAGEMENT ##
 
 
-// Get all family members for a user
+// Fetches family members 
 app.get('/api/family/:userId', async (req, res) => {
   try {
     const members = await FamilyMember.find({ userId: req.params.userId });
@@ -65,7 +66,7 @@ app.get('/api/family/:userId', async (req, res) => {
   }
 });
 
-// Add a new family member
+
 app.post('/api/family', async (req, res) => {
   try {
     const { userId, name, relation } = req.body;
@@ -77,7 +78,7 @@ app.post('/api/family', async (req, res) => {
   }
 });
 
-// Delete a family member
+
 app.delete('/api/family/:id', async (req, res) => {
   try {
     await FamilyMember.findByIdAndDelete(req.params.id);
@@ -88,7 +89,7 @@ app.delete('/api/family/:id', async (req, res) => {
 });
 
 
-// FEATURE 2: MEDICINE MANAGEMENT (Add & Remove)
+// ## FEATURE 2: MEDICINE MANAGEMENT ##
 
 
 // Fetch all active medicines 
@@ -126,7 +127,7 @@ app.post('/api/medicines', async (req, res) => {
     });
     const savedPrescription = await newPrescription.save();
 
-    // Create one Reminder per scheduled time 
+    //Reminder 
     if (scheduledTimes && Array.isArray(scheduledTimes)) {
       const reminderPromises = scheduledTimes.map(time => {
         if (!time) return Promise.resolve();
@@ -145,7 +146,7 @@ app.post('/api/medicines', async (req, res) => {
   }
 });
 
-// Remove a medicine 
+//Remove 
 app.delete('/api/medicines/:id', async (req, res) => {
   try {
     await PrescribedMed.findByIdAndDelete(req.params.id);
@@ -156,7 +157,7 @@ app.delete('/api/medicines/:id', async (req, res) => {
 });
 
 
-// FEATURE 3: DOSE REMINDER (Schedule & Mark as Taken)
+// ## FEATURE 3: DOSE REMINDER ##
 
 app.get('/api/schedule/:userId', async (req, res) => {
   try {
@@ -178,12 +179,12 @@ app.post('/api/doselogs', async (req, res) => {
   try {
     const { prescriptionId, scheduledTime, timeTaken } = req.body;
 
-    // Scheduled time vs the actual time compare
+    //Time comparison
     const schedDate = new Date(`1970/01/01 ${scheduledTime}`);
     const takenDate = new Date(`1970/01/01 ${timeTaken}`);
     const diffHours = (takenDate - schedDate) / (1000 * 60 * 60);
 
-    // Status based on the time diff
+    //Status based on the time
     let status = 'Taken';
     if (diffHours >= 1) {
       status = 'Late';
@@ -205,6 +206,29 @@ app.post('/api/doselogs', async (req, res) => {
     await PrescribedMed.findByIdAndUpdate(prescriptionId, { $inc: { remainingQuantity: -1 } });
 
     res.status(201).json({ message: `Dose logged as ${status}`, status });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Fetch today's dose logs 
+app.get('/api/doselogs/today/:userId', async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // meds that are taken today
+    const prescriptions = await PrescribedMed.find({ userId: req.params.userId });
+    const prescriptionIds = prescriptions.map(p => p._id);
+
+    const logs = await DoseLog.find({
+      prescriptionId: { $in: prescriptionIds },
+      dateTaken: { $gte: today, $lt: tomorrow }
+    });
+
+    res.json(logs);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -235,126 +259,108 @@ const diagnosisRules = [
   {
     name: 'Dengue Fever',
     symptoms: ['Fever', 'Headache', 'Joint pain', 'Muscle aches', 'Fatigue'],
-    minMatch: 4,
     severity: 'Severe',
     feedback: 'Symptoms are pointing to Dengue Fever. Patient should consult a doctor as soon as possible.'
   },
   {
     name: 'Hypertensive Episode',
     symptoms: ['Headache', 'Blurred vision', 'Dizziness'],
-    minMatch: 3,
     severity: 'Severe',
     feedback: 'Symptoms are pointing to Hypertensive Episode. Patient should seek medical attention immediately.'
   },
   {
     name: 'Influenza (Flu)',
     symptoms: ['Fever', 'Fatigue', 'Headache', 'Muscle aches'],
-    minMatch: 3,
     severity: 'Moderate',
     feedback: 'Symptoms are pointing to Influenza (Flu). For the time being patient should take rest, stay hydrated, and consider antiviral medication. If fever exceeds 39°C or lasts more than 3 days patient should consult a doctor.'
   },
   {
     name: 'Migraine',
     symptoms: ['Headache', 'Nausea', 'Blurred vision', 'Dizziness'],
-    minMatch: 3,
     severity: 'Moderate',
     feedback: 'Symptoms are pointing to a Migraine episode. Patient should rest in a dark, quiet room and avoid screens. If migraines are recurring, patient should consult a neurologist.'
   },
   {
     name: 'Arthritis / Rheumatic Condition',
     symptoms: ['Joint pain', 'Muscle aches', 'Fatigue'],
-    minMatch: 3,
     severity: 'Moderate',
     feedback: 'Symptoms are pointing to an arthritic or rheumatic condition. Patient should consult a rheumatologist for a proper diagnosis.'
   },
   {
     name: 'Gastroenteritis (Stomach Flu)',
     symptoms: ['Nausea', 'Diarrhea', 'Fever', 'Fatigue'],
-    minMatch: 2,
     severity: 'Mild',
     feedback: 'Symptoms are pointing to Gastroenteritis (stomach flu). Patient should stay well-hydrated with water and oral rehydration salts. Patient should eat light, bland foods and rest.'
   },
   {
     name: 'Dehydration',
     symptoms: ['Dizziness', 'Headache', 'Fatigue', 'Nausea'],
-    minMatch: 3,
     severity: 'Mild',
     feedback: 'Symptoms can be caused by dehydration. Patient should drink plenty of water and electrolyte-rich fluids immediately.'
   },
   {
     name: 'General Viral Infection',
     symptoms: ['Fever', 'Fatigue', 'Muscle aches', 'Headache'],
-    minMatch: 2,
     severity: 'Mild',
     feedback: 'Symptoms are pointing to a general viral infection. Patient should rest, drink plenty of fluids, and monitor temperature. See a doctor if the fever stays beyond 3 days.'
   },
   {
     name: 'Common Cold',
     symptoms: ['Runny nose', 'Sneezing', 'Sore throat', 'Cough', 'Mild fever'],
-    minMatch: 3,
     severity: 'Mild',
     feedback: 'Symptoms are pointing to the Common Cold. Patient should rest, stay hydrated, and take supportive care. Consult a doctor if symptoms persist beyond a week.'
   },
   {
     name: 'Food Poisoning',
     symptoms: ['Nausea', 'Vomiting', 'Diarrhea', 'Abdominal pain', 'Fever'],
-    minMatch: 3,
     severity: 'Moderate',
     feedback: 'Symptoms are pointing to Food Poisoning. Patient should stay hydrated and avoid solid food initially. Seek medical help if symptoms are severe or prolonged.'
   },
   {
     name: 'Pneumonia',
     symptoms: ['High fever', 'Cough', 'Chest pain', 'Shortness of breath', 'Fatigue'],
-    minMatch: 3,
     severity: 'Severe',
     feedback: 'Symptoms are pointing to Pneumonia. Patient should seek medical attention immediately for proper treatment.'
   },
   {
     name: 'Eczema',
     symptoms: ['Itching', 'Dry skin', 'Rash', 'Redness'],
-    minMatch: 3,
     severity: 'Moderate',
     feedback: 'Symptoms are pointing to Eczema. Patient should keep skin moisturized and avoid irritants. Consult a doctor if severe.'
   },
   {
     name: 'Conjunctivitis (Eye Infection)',
     symptoms: ['Red eyes', 'Eye discharge', 'Itching', 'Watering eyes'],
-    minMatch: 3,
     severity: 'Moderate',
     feedback: 'Symptoms are pointing to Conjunctivitis. Patient should maintain eye hygiene and consult a doctor for eye drops.'
   },
   {
     name: 'Tonsillitis',
     symptoms: ['Sore throat', 'Fever', 'Difficulty swallowing', 'Swollen tonsils'],
-    minMatch: 3,
     severity: 'Moderate',
     feedback: 'Symptoms are pointing to Tonsillitis. Patient should take warm fluids and consult a doctor if pain is severe.'
   },
   {
     name: 'Acidity',
     symptoms: ['Heartburn', 'Chest discomfort', 'Bloating'],
-    minMatch: 2,
     severity: 'Mild',
     feedback: 'Symptoms suggest acidity. Patient should avoid spicy foods and eat smaller meals.'
   },
   {
     name: 'Allergy (Mild)',
     symptoms: ['Sneezing', 'Runny nose', 'Itching'],
-    minMatch: 2,
     severity: 'Mild',
     feedback: 'Symptoms indicate a mild allergy. Patient should avoid allergens and may consider antihistamines.'
   },
   {
     name: 'Muscle Pain',
     symptoms: ['Muscle aches', 'Fatigue', 'Body pain'],
-    minMatch: 2,
     severity: 'Mild',
     feedback: 'Symptoms suggest muscle pain. Patient should rest and avoid heavy activity.'
   },
   {
     name: 'Sore Throat',
     symptoms: ['Sore throat', 'Pain swallowing', 'Mild fever'],
-    minMatch: 2,
     severity: 'Mild',
     feedback: 'Symptoms indicate a sore throat. Patient should drink warm fluids and rest. Seek medical help if symptoms worsen.'
   },
@@ -375,7 +381,7 @@ app.post('/api/symptoms/check', async (req, res) => {
         const matchedSymptoms = rule.symptoms.filter(s => selectedSymptoms.includes(s));
         return { ...rule, matchCount: matchedSymptoms.length, matchedSymptoms };
       })
-      .filter(rule => rule.matchCount >= rule.minMatch)
+      .filter(rule => rule.matchCount === rule.symptoms.length)
       .sort((a, b) => b.matchCount - a.matchCount);
 
 
